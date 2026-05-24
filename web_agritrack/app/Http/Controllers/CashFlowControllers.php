@@ -1,0 +1,54 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Models\Debit;
+use App\Models\Kredit;
+
+class CashFlowControllers extends Controller
+{
+    public function indexCashflow()
+    {
+        // 1. Query Tabel Debit (Tanpa kolom status di DB, jadi kita buat dummy 'setuju')
+        $debitQuery = DB::table('debit')
+            ->select(
+                'id_debit as id', 
+                'tanggal', 
+                'nama', 
+                DB::raw("'PEMASUKAN' as kategori"), 
+                'saldo_debit as nominal', 
+                DB::raw("'setuju' as status"), // Karena tidak ada kolom status, kita anggap semua setuju
+                DB::raw("'green' as color")
+            );
+
+        // 2. Query Tabel Kredit (Hanya yang statusnya 'setuju')
+        $cashflow = DB::table('kredit')
+            ->select(
+                'id_kredit as id', 
+                'tanggal', 
+                'nama', 
+                DB::raw("'PENGELUARAN' as kategori"), 
+                'saldo_kredit as nominal', 
+                'status', 
+                DB::raw("'red' as color")
+            )
+            ->where('status', 'setuju') // FILTER: Hanya tampilkan yang disetujui
+            ->unionAll($debitQuery)
+            ->orderBy('tanggal', 'desc')
+            ->get();
+
+        // 3. Hitung Total untuk Card Ringkasan
+        // Total Pengeluaran hanya dari yang disetujui
+        $totalPengeluaran = DB::table('kredit')
+            ->where('status', 'setuju')
+            ->sum('saldo_kredit');
+
+        // Total Pemasukan dari semua data di tabel debit
+        $totalPemasukan = DB::table('debit')
+            ->sum('saldo_debit');
+
+        return view('cashflow.page', compact('cashflow', 'totalPengeluaran', 'totalPemasukan'));
+    }
+}
