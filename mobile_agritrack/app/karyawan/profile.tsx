@@ -154,6 +154,8 @@ export default function ProfileScreen() {
       router.push('/karyawan/gaji');
     } else if (screenName === 'Profile') {
       router.push('/karyawan/profile');
+    }else if (screenName === 'Produk') {
+      router.push('/karyawan/Produk');
     }
   };
 

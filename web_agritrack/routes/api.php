@@ -8,6 +8,7 @@ use App\Http\Controllers\LoginControllers;
 use App\Http\Controllers\GajiControllers;
 use App\Http\Controllers\KreditControllers;
 use App\Http\Controllers\KaryawanController;
+use App\Http\Controllers\ProdukControllers;
 
 /*
 |--------------------------------------------------------------------------
@@ -47,3 +48,7 @@ Route::get('gaji/detail/{id_gaji}', [GajiControllers::class, 'show']);
 Route::get('kredit', [KreditControllers::class, 'index']);
 Route::put('kredit-update/{id}', [KreditControllers::class, 'updateStatus']);
 
+Route::get('Produk', [ProdukControllers::class, 'index']);
+Route::post('add-produk', [ProdukControllers::class, 'store']);
+Route::put('update-produk/{id}', [ProdukControllers::class, 'update']);
+Route::delete('delete-produk/{id}', [ProdukControllers::class, 'destroy']);

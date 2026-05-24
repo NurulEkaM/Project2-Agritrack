@@ -9,7 +9,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface BottomNavProps {
-  activeScreen: 'Home' | 'Absensi' | 'Gaji' | 'Profile';
+  activeScreen: 'Home' | 'Absensi' | 'Produk' | 'Gaji' | 'Profile';
   onNavPress?: (screen: string) => void;
 }
 
@@ -47,6 +47,24 @@ export default function BottomNav({ activeScreen, onNavPress }: BottomNavProps) 
         )}
         <Text style={[styles.navText, activeScreen === 'Absensi' && styles.activeNavText]}>
           Absensi
+        </Text>
+
+      </TouchableOpacity>
+      
+      {/* Tombol Produk */}
+      <TouchableOpacity 
+        style={styles.navItem} 
+        onPress={() => onNavPress?.('Produk')}
+      >
+        {activeScreen === 'Produk' ? (
+          <View style={styles.activeNavBg}>
+            <MaterialCommunityIcons name="package-variant" size={22} color="#ffffff" />
+          </View>
+        ) : (
+          <MaterialCommunityIcons name="package-variant" size={24} color="#bdc3c7" />
+        )}
+        <Text style={[styles.navText, activeScreen === 'Produk' && styles.activeNavText]}>
+          Produk
         </Text>
       </TouchableOpacity>
 

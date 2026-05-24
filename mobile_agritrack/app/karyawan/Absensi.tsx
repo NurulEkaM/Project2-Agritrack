@@ -83,6 +83,8 @@ const handleNavigation = (screenName: string) => {
         router.push('/karyawan/gaji'); 
     } else if (screenName === 'Profile') {
         router.push('/karyawan/profile');
+    } else if (screenName === 'Produk') {
+        router.push('/karyawan/Produk');
     }
   };
 

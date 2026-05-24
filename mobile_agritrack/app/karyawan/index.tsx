@@ -70,8 +70,9 @@ export default function KaryawanDashboard() {
       router.push('/karyawan/gaji'); // diarahkan ke file Calendar.tsx (jika ada)
     } else if (screenName === 'Profile') {
       router.push('/karyawan/profile'); // diarahkan ke file Profile.tsx (jika ada)
-    } 
-    // Nanti kamu bisa tambah kondisi untuk 'Calendar' atau 'Profile' di sini
+    } else if (screenName === 'Produk') {
+      router.push('/karyawan/Produk'); // diarahkan ke file Produk.tsx (jika ada)
+    }
   };
 
   return (
