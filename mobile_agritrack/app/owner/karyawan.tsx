@@ -132,6 +132,7 @@ const KaryawanScreen = () => {
         onNavPress={(screen) => {
           if (screen === 'Pengeluaran') router.push('/owner/pengeluaran');
           else if (screen === 'Home') router.push('/owner');
+          else if (screen === 'Laporan') router.push('/owner/laporan');
           else if (screen === 'Profile') router.push('/owner/profile');
         }}
       />

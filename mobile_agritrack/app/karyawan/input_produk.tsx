@@ -9,19 +9,36 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Image // Tambahkan Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker'; // 1. Import ImagePicker
 
 export default function InputProdukScreen() {
   const [loading, setLoading] = useState(false);
+  const [image, setImage] = useState<any>(null); // State untuk simpan info gambar
   const [form, setForm] = useState({
     nama_produk: '',
     harga_satuan: '',
     stok: '',
-    deskripsi: '', // Deskripsi dipetakan ke field "Unit" atau "Category" di UI jika perlu
+    deskripsi: '',
   });
+
+  // 2. Fungsi Memilih Gambar
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7, // Kompres sedikit agar upload lebih cepat
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0]);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!form.nama_produk || !form.harga_satuan || !form.stok) {
@@ -30,26 +47,37 @@ export default function InputProdukScreen() {
     }
 
     setLoading(true);
+
+    // 3. Gunakan FormData (Wajib untuk upload file)
+    const formData = new FormData();
+    formData.append('nama_produk', form.nama_produk);
+    formData.append('harga_satuan', form.harga_satuan);
+    formData.append('stok', form.stok);
+    formData.append('deskripsi', form.deskripsi);
+
+    if (image) {
+      formData.append('gambar', { // <--- PASTIKAN namanya 'gambar' bukan 'image' atau 'photo'
+        uri: image.uri,
+        name: 'product_image.jpg',
+        type: 'image/jpeg',
+      } as any);
+    }
+
     try {
       const response = await fetch('http://10.0.2.2:8000/api/add-produk', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Accept': 'application/json',
+          // Note: Jangan set Content-Type secara manual saat kirim FormData
         },
-        body: JSON.stringify({
-          nama_produk: form.nama_produk,
-          harga_satuan: parseFloat(form.harga_satuan),
-          stok: parseInt(form.stok),
-          deskripsi: form.deskripsi,
-        }),
+        body: formData,
       });
 
       const result = await response.json();
 
       if (response.ok) {
         Alert.alert('Sukses', 'Produk berhasil ditambahkan');
-        router.back(); // Kembali ke halaman list produk
+        router.back();
       } else {
         Alert.alert('Gagal', result.message || 'Terjadi kesalahan');
       }
@@ -65,7 +93,6 @@ export default function InputProdukScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#2c3e50" />
@@ -76,14 +103,20 @@ export default function InputProdukScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
-        {/* Product Image Placeholder (Dikosongkan sesuai permintaan) */}
         <Text style={styles.label}>Product Image</Text>
-        <View style={styles.imageBox}>
-          <Ionicons name="camera-outline" size={40} color="#bdc3c7" />
-          <Text style={styles.imageText}>Tap to upload high-res imagery</Text>
-        </View>
+        {/* 4. Tampilan Box Gambar yang bisa diklik */}
+        <TouchableOpacity style={styles.imageBox} onPress={pickImage}>
+          {image ? (
+            <Image source={{ uri: image.uri }} style={styles.selectedImage} />
+          ) : (
+            <>
+              <Ionicons name="camera-outline" size={40} color="#bdc3c7" />
+              <Text style={styles.imageText}>Tap to upload high-res imagery</Text>
+            </>
+          )}
+        </TouchableOpacity>
 
-        {/* Form Inputs */}
+        {/* Sisanya tetap sama */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>Product Name</Text>
           <TextInput
@@ -97,8 +130,9 @@ export default function InputProdukScreen() {
         <View style={styles.formGroup}>
           <Text style={styles.label}>Description / Unit</Text>
           <TextInput
-            style={styles.inputDeskripsi}
+            style={[styles.input, { height: 80, textAlignVertical: 'top', paddingTop: 10 }]}
             placeholder="e.g. kg, liters, bags"
+            multiline
             value={form.deskripsi}
             onChangeText={(val) => setForm({ ...form, deskripsi: val })}
           />
@@ -126,7 +160,6 @@ export default function InputProdukScreen() {
           />
         </View>
 
-        {/* Submit Button */}
         <TouchableOpacity 
           style={[styles.submitButton, loading && { backgroundColor: '#95a5a6' }]} 
           onPress={handleSubmit}
@@ -144,6 +177,7 @@ export default function InputProdukScreen() {
 }
 
 const styles = StyleSheet.create({
+  // ... style Anda sebelumnya ...
   container: { flex: 1, backgroundColor: '#fcfcfc' },
   header: {
     flexDirection: 'row',
@@ -154,17 +188,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  inputDeskripsi: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    height: 100,
-    fontSize: 14,
-    color: '#2c3e50',
-    textAlignVertical: 'top',
-    },
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#2c3e50' },
   profileCircle: { width: 35, height: 35, borderRadius: 17.5, backgroundColor: '#ddd' },
   scrollContent: { padding: 20 },
@@ -179,6 +202,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+    overflow: 'hidden' // Agar gambar tidak keluar dari border radius
+  },
+  selectedImage: {
+    width: '100%',
+    height: '100%',
   },
   imageText: { color: '#bdc3c7', fontSize: 12, marginTop: 10 },
   formGroup: { marginBottom: 20 },

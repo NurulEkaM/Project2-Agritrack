@@ -125,7 +125,7 @@ class GajiControllers extends Controller
 
                 // Keterangan: Nama Bulan + Minggu Ke-
                 $mingguKe = ceil($now->day / 7);
-                $keterangan = "Gaji " . $now->translatedFormat('F') . " - Minggu ke " . $mingguKe;
+                $keterangan = "Gaji " . $now->translatedFormat('F');
 
                 // 3. Simpan ke Tabel Gaji
                 // Gunakan updateOrInsert agar tidak double input jika tombol diklik ulang di hari yang sama

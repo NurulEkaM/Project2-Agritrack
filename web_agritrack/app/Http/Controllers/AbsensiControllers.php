@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Absensi;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class AbsensiControllers extends Controller
 {
@@ -14,10 +16,10 @@ class AbsensiControllers extends Controller
     {
         $validator = Validator::make($request->all(), [
             'id_user'        => 'required|integer',
-            'status'         => 'required|in:absen_datang,lembur_datang',
-            'kegiatan'       => 'nullable|string',
+            'status'         => 'required|in:absen_datang,lembur_datang,tidak_hadir',
             'lokasi'         => 'required|in:kebun_lanud,kebun_sadang',
-            'tanggal_datang' => 'required|date_format:Y-m-d H:i:s', // Menerima waktu kunci dari mobile
+            'tanggal_datang' => 'required|date', // Waktu yang dikunci dari mobile
+            'image'          => 'nullable|string', 
         ]);
 
         if ($validator->fails()) {
@@ -26,28 +28,48 @@ class AbsensiControllers extends Controller
 
         try {
             date_default_timezone_set('Asia/Jakarta');
-            $hariIni = date('Y-m-d');
+            
+            // Ambil waktu yang dikirim dari Mobile
+            $waktuLocked = $request->tanggal_datang; 
+            // Ambil tanggal saja untuk pengecekan double absen
+            $hariIni = Carbon::parse($waktuLocked)->format('Y-m-d');
 
-            // Cek Double Absen
+            // 1. Cek Double Absen (Berdasarkan tanggal dari waktu yang dikunci)
             $sudahAbsen = DB::table('absensi')
                 ->where('id_user', $request->id_user)
                 ->whereDate('tanggal_datang', $hariIni)
                 ->exists();
 
             if ($sudahAbsen) {
-                return response()->json(['success' => false, 'message' => 'Anda sudah absen hari ini.'], 422); 
+                return response()->json([
+                    'success' => false, 
+                    'message' => 'Gagal: Anda sudah absen pada tanggal ' . $hariIni
+                ], 422); 
             }
 
+            // 2. Proses Foto
+            $fileName = null;
+            if ($request->filled('image')) {
+                $image = $request->image;
+                $image = str_replace('data:image/png;base64,', '', $image);
+                $image = str_replace(' ', '+', $image);
+                $fileName = 'selfie_' . time() . '_' . $request->id_user . '.png';
+                Storage::disk('public')->put('absensi/' . $fileName, base64_decode($image));
+            }
+
+            // 3. Simpan ke Database
             DB::table('absensi')->insert([
                 'id_user'        => $request->id_user,
-                'tanggal_datang' => $request->tanggal_datang, // Gunakan waktu dari frontend
+                'tanggal_datang' => $waktuLocked, // Menggunakan waktu saat user buka page
                 'status'         => $request->status,
-                'kegiatan'       => $request->kegiatan,
+                'kegiatan'       => $request->kegiatan ?? 'Absen Mobile',
                 'lokasi'         => $request->lokasi,
+                'image'          => $fileName ? 'absensi/' . $fileName : null,
                 'total_lembur'   => 0
             ]);
 
-            return response()->json(['success' => true, 'message' => 'Absensi berhasil disimpan!'], 200);
+            return response()->json(['success' => true, 'message' => 'Absensi Berhasil!'], 200);
+
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Eror: ' . $e->getMessage()], 500);
         }
@@ -80,7 +102,7 @@ class AbsensiControllers extends Controller
 
         // --- LOGIKA HITUNG LEMBUR BERDASARKAN WAKTU KUNCI ---
         $totalLembur = 0;
-        $batasLembur = new \DateTime($waktuPulang->format('Y-m-d') . ' 14:00:00');
+        $batasLembur = new \DateTime($waktuPulang->format('Y-m-d') . ' 17:00:00');
 
         if ($waktuPulang > $batasLembur) {
             $diff = $waktuPulang->diff($batasLembur);

@@ -15,15 +15,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import BottomNav from './components/BottomNav'; 
+import BottomNav from './components/BottomNav';
 
 interface AbsensiItem {
   id_absensi: number;
-  tanggal_datang: string; 
+  tanggal_datang: string;
   tanggal_pulang: string | null;
-  lokasi: 'kebun_lanud' | 'kebun_sadang'; 
-  status: 'absen_datang' | 'absen_pulang' | 'lembur_datang';
-  kegiatan: string | null; 
+  lokasi: 'kebun_lanud' | 'kebun_sadang';
+  status: 'absen_datang' | 'absen_pulang' | 'tidak_hadir';
+  kegiatan: string | null;
 }
 
 export default function AbsensiScreen() {
@@ -32,6 +32,9 @@ export default function AbsensiScreen() {
   const [absensiList, setAbsensiList] = useState<AbsensiItem[]>([]);
   const [stats, setStats] = useState({ hadir: 0, lembur: 0 });
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Mendapatkan Nama Bulan Saat Ini secara Otomatis
+  const currentMonth = new Date().toLocaleString('id-ID', { month: 'long' });
 
   useEffect(() => {
     fetchAbsensiData();
@@ -43,15 +46,17 @@ export default function AbsensiScreen() {
       const jsonValue = await AsyncStorage.getItem('user_session');
       if (jsonValue != null) {
         const sessionData = JSON.parse(jsonValue);
-        const idUser = sessionData.user?.id_user; 
+        const idUser = sessionData.user?.id_user;
         if (idUser) {
-          // Ganti dengan IP laptop Anda jika menggunakan HP fisik
+          // Tetap gunakan 127.0.0.1 atau IP sesuai instruksi ledger Anda
           const API_URL = `http://10.0.2.2:8000/api/absensi?id_user=${idUser}`;
+          // const API_URL = `http://127.0.0.1:8000/api/absensi?id_user=${idUser}`;
+          // const API_URL = `http://10.231.171.66:8000/api/absensi?id_user=${idUser}`;
           const response = await fetch(API_URL);
           const data = await response.json();
           if (data.results) {
             setAbsensiList(data.results);
-            const hadir = data.results.filter((item: any) => 
+            const hadir = data.results.filter((item: any) =>
               item.status === 'absen_pulang' || item.status === 'absen_datang'
             ).length;
             const lembur = data.results.filter((item: any) => item.total_lembur > 0).length;
@@ -74,43 +79,33 @@ export default function AbsensiScreen() {
     const mins = Math.round((diffMs % 3600000) / 60000);
     return `${hrs}j ${mins}m`;
   };
-const handleNavigation = (screenName: string) => {
-    if (screenName === 'Absensi') { 
-        router.push('/karyawan/Absensi'); 
-    } else if (screenName === 'Home') {
-        router.push('/karyawan'); 
-    } else if (screenName === 'Gaji') {
-        router.push('/karyawan/gaji'); 
-    } else if (screenName === 'Profile') {
-        router.push('/karyawan/profile');
-    } else if (screenName === 'Produk') {
-        router.push('/karyawan/Produk');
-    }
+
+  const handleNavigation = (screenName: string) => {
+    const routes: any = {
+      'Absensi': '/karyawan/Absensi',
+      'Home': '/karyawan',
+      'Gaji': '/karyawan/gaji',
+      'Profile': '/karyawan/profile',
+      'Produk': '/karyawan/Produk'
+    };
+    if (routes[screenName]) router.push(routes[screenName]);
   };
 
   const parseTimestamp = (ts: string) => {
     const date = new Date(ts.replace(' ', 'T'));
     const days = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
-    return { 
-      day: days[date.getDay()], 
-      num: date.getDate().toString().padStart(2, '0'), 
-      time: ts.substring(11, 16) 
+    return {
+      day: days[date.getDay()],
+      num: date.getDate().toString().padStart(2, '0'),
+      time: ts.substring(11, 16)
     };
   };
 
-  // LOGIKA SEARCHING (LOKASI & TANGGAL)
   const filteredData = absensiList.filter(item => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
-
-    const dateInfo = parseTimestamp(item.tanggal_datang);
-    const dayName = dateInfo.day.toLowerCase();
-    const dayNum = dateInfo.num.toLowerCase();
-
     return (
-      item.lokasi.toLowerCase().includes(query) ||
-      dayName.includes(query) ||
-      dayNum.includes(query) ||
+      item.lokasi.toLowerCase().includes(query) || 
       item.tanggal_datang.includes(query) ||
       (item.kegiatan && item.kegiatan.toLowerCase().includes(query))
     );
@@ -119,113 +114,128 @@ const handleNavigation = (screenName: string) => {
   const renderItem = ({ item }: { item: AbsensiItem }) => {
     const start = parseTimestamp(item.tanggal_datang);
     const end = item.tanggal_pulang ? parseTimestamp(item.tanggal_pulang) : null;
-    const isOngoing = item.status !== 'absen_pulang';
+    const isOngoing = item.status !== 'absen_pulang' && item.status !== 'tidak_hadir';
 
-    const Card = (
-      <View style={styles.card}>
-        {/* TANGGAL DINAMIS */}
-        <View style={styles.cardDate}>
-          <Text style={styles.dateText}>{start.day}</Text>
-          <Text style={styles.dateNum}>{start.num}</Text>
-        </View>
-
-        {/* TRACKING TIMELINE */}
-        <View style={styles.cardTimeline}>
-          <View style={styles.timelineVisual}>
-            <View style={styles.dotIn} />
-            <View style={styles.line} />
-            <View style={[styles.dotOut, !isOngoing && {backgroundColor: '#e67e22'}]} />
-          </View>
-          <View style={styles.timeContent}>
-            <Text style={styles.timeLabel}>Masuk: <Text style={styles.timeValue}>{start.time}</Text></Text>
-            <Text style={styles.locText}>
-              <Ionicons name="location-outline" size={10}/> {item.lokasi.replace('_', ' ').toUpperCase()}
-            </Text>
-            <Text style={[styles.timeLabel, {marginTop: 15}]}>
-              Pulang: <Text style={styles.timeValue}>{end?.time || '--:--'}</Text>
-            </Text>
-            {end && (
-              <Text style={styles.durationText}>
-                Durasi Kerja: {calculateDuration(item.tanggal_datang, item.tanggal_pulang!)}
-              </Text>
-            )}
-            {item.kegiatan && (
-              <Text style={[styles.timeLabel, {marginTop: 10}]}>
-                Kegiatan: <Text style={styles.timeValue}>{item.kegiatan}</Text>
-              </Text>
-            )}
-          </View>
-        </View>
-
-        {/* STATUS BADGE */}
-        <View style={styles.cardBadge}>
-          <View style={[styles.badge, isOngoing ? styles.badgeOn : styles.badgeOff]}>
-            <Text style={[styles.badgeText, isOngoing ? styles.badgeTextOn : styles.badgeTextOff]}>
-              {isOngoing ? 'Proses' : 'Selesai'}
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-
-    return isOngoing ? (
-      <TouchableOpacity 
-        activeOpacity={0.7}
+    return (
+      <TouchableOpacity
+        activeOpacity={0.8}
+        disabled={!isOngoing}
         onPress={() => router.push({ pathname: '/karyawan/absen_pulang', params: { ...item } })}
+        style={styles.card}
       >
-        {Card}
+        <View style={styles.cardDateContainer}>
+          <Text style={styles.cardDayText}>{start.day}</Text>
+          <Text style={styles.cardNumText}>{start.num}</Text>
+        </View>
+
+        <View style={styles.cardContent} >
+          <View style={styles.locationBadge}>
+            <Ionicons name="location" size={10} color="#117a65" />
+            <Text style={styles.locationText}>
+              {item.status === 'absen_datang' || item.status === 'absen_pulang' ? item.lokasi.replace('_', ' ').toUpperCase() : 'TIDAK HADIR'}
+            </Text>
+          </View>
+
+          <View style={styles.timeRow}>
+            <View>
+              <Text style={styles.timeLabel}>MASUK</Text>
+              <Text style={styles.timeValue}>{start.time}</Text>
+            </View>
+            <Ionicons name="arrow-forward" size={16} color="#DDD" style={{ marginHorizontal: 10 }} />
+            <View>
+              <Text style={styles.timeLabel}>PULANG</Text>
+              <Text style={styles.timeValue}>{end?.time || '--:--'}</Text>
+            </View>
+          </View>
+
+          {item.tanggal_pulang && (
+            <Text style={styles.durationTag}>
+              <Ionicons name="timer-outline" size={12} /> {calculateDuration(item.tanggal_datang, item.tanggal_pulang)} kerja
+            </Text>
+          )}
+        </View>
+
+            <View style={[
+              styles.statusIndicator, 
+              item.status === 'tidak_hadir' ? styles.bgDanger : (isOngoing ? styles.bgProcess : styles.bgSuccess)
+              ]}>
+              <Text style={[
+                  styles.statusLabel, 
+                  item.status === 'tidak_hadir' ? styles.txtDanger : (isOngoing ? styles.txtProcess : styles.txtSuccess)
+              ]}>
+                  {item.status === 'tidak_hadir' ? 'TIDAK HADIR' : isOngoing ? 'PROSES' : 'SELESAI'}
+              </Text>
+            </View>
       </TouchableOpacity>
-    ) : Card;
+    );
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['right', 'left']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{padding: 20}}>
+      
+      <View style={styles.headerSection}>
+        <Text style={styles.headerTitle}>Riwayat Absensi</Text>
+        <Text style={styles.headerSubtitle}>Pantau produktivitas harian Anda</Text>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
         
-        {/* HEADER & STATS (Gambar 1) */}
-        <Text style={styles.title}>Riwayat Absensi</Text>
-        <Text style={styles.subtitle}>Pantau kehadiran kerja Anda setiap hari.</Text>
-
-        <View style={styles.mainStats}>
-           <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-              <Text style={styles.statsLabel}>Statistik Kehadiran</Text>
-              <Ionicons name="document-text-outline" size={20} color="#117a65" />
-           </View>
-           <Text style={styles.statsBigNum}>{stats.hadir} <Text style={{fontSize: 14, fontWeight: 'normal'}}>Hari Hadir</Text></Text>
+        {/* STATS SECTION */}
+        <View style={styles.mainStatsCard}>
+          <View style={styles.statsInfo}>
+            <Text style={styles.statsTitle}>Kehadiran Anda</Text>
+            <View style={styles.statsRowMain}>
+              <Text style={styles.bigNumber}>{stats.hadir}</Text>
+              <Text style={styles.bigNumberSub}>Hari Terdaftar</Text>
+            </View>
+          </View>
+          <View style={styles.statsIconBg}>
+            <MaterialCommunityIcons name="calendar-check" size={40} color="#FFF" />
+          </View>
         </View>
 
-        <View style={styles.rowStats}>
-           <View style={[styles.subStats, {backgroundColor: '#fef5e7'}]}>
-              <Text style={[styles.statsLabel, {color: '#b8860b'}]}><Ionicons name="time-outline"/> Lembur</Text>
-              <Text style={styles.statsNum}>{stats.lembur} Hari</Text>
-           </View>
-           <View style={[styles.subStats, {backgroundColor: '#eaeded'}]}>
-              <Text style={styles.statsLabel}><Ionicons name="calendar-outline"/> Bulan</Text>
-              <Text style={styles.statsNum}>Mei</Text>
-           </View>
+        <View style={styles.smallStatsRow}>
+          <View style={[styles.smallStatCard, { backgroundColor: '#FFF4E5' }]}>
+            <View style={styles.smallStatIconBg}>
+               <Ionicons name="flash" size={16} color="#FF9800" />
+            </View>
+            <View>
+              <Text style={styles.smallStatLabel}>Lembur</Text>
+              <Text style={styles.smallStatValue}>{stats.lembur} Hari</Text>
+            </View>
+          </View>
+
+          <View style={[styles.smallStatCard, { backgroundColor: '#E8F5E9' }]}>
+            <View style={[styles.smallStatIconBg, { backgroundColor: '#C8E6C9' }]}>
+               <Ionicons name="calendar" size={16} color="#117a65" />
+            </View>
+            <View>
+              <Text style={styles.smallStatLabel}>Bulan</Text>
+              <Text style={[styles.smallStatValue, { color: '#117a65' }]}>{currentMonth}</Text>
+            </View>
+          </View>
         </View>
 
-        {/* SEARCH BAR */}
-        <View style={styles.searchContainer}>
-          <Ionicons name="search-outline" size={18} color="#95a5a6" style={{marginRight: 10}} />
+        {/* SEARCH SECTION */}
+        <View style={styles.searchWrapper}>
+          <Ionicons name="search" size={20} color="#BDBDBD" />
           <TextInput
-            style={styles.searchInput}
-            placeholder="Cari tanggal (contoh: 22) atau lokasi..."
+            placeholder="Cari tanggal atau lokasi..."
+            style={styles.searchField}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            autoCapitalize="none"
           />
-          {searchQuery.length > 0 && (
+          {searchQuery !== '' && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color="#bdc3c7" />
+              <Ionicons name="close-circle" size={20} color="#BDBDBD" />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* LIST RIWAYAT (Gambar 2) */}
+        {/* LIST SECTION */}
         {loading ? (
-          <ActivityIndicator color="#117a65" style={{marginTop: 50}} />
+          <ActivityIndicator size="large" color="#117a65" style={{ marginTop: 40 }} />
         ) : (
           <FlatList
             data={filteredData}
@@ -233,57 +243,141 @@ const handleNavigation = (screenName: string) => {
             keyExtractor={item => item.id_absensi.toString()}
             scrollEnabled={false}
             ListEmptyComponent={
-              <Text style={styles.emptyText}>Data tidak ditemukan.</Text>
+              <View style={styles.emptyContainer}>
+                <Ionicons name="document-text-outline" size={50} color="#EEE" />
+                <Text style={styles.emptyText}>Belum ada riwayat absensi</Text>
+              </View>
             }
           />
         )}
-        <View style={{height: 100}} />
+        <View style={{ height: 120 }} />
       </ScrollView>
-      
-      {/* FLOATING ACTION BUTTON */}
-      <TouchableOpacity style={styles.fab} onPress={() => router.push('/karyawan/input_absensi')}>
-        <Ionicons name="add" size={30} color="white" />
+
+      {/* FAB */}
+      <TouchableOpacity 
+        style={styles.fab} 
+        onPress={() => router.push('/karyawan/input_absensi')}
+      >
+        <Ionicons name="add" size={32} color="#FFF" />
       </TouchableOpacity>
       
       <BottomNav activeScreen="Absensi" onNavPress={handleNavigation} />
-
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#2c3e50' },
-  subtitle: { fontSize: 13, color: '#7f8c8d', marginBottom: 20 },
-  mainStats: { backgroundColor: '#e8f8f5', borderRadius: 15, padding: 20, marginBottom: 15 },
-  statsLabel: { fontSize: 12, color: '#117a65', fontWeight: 'bold' },
-  statsBigNum: { fontSize: 32, fontWeight: 'bold', color: '#117a65', marginTop: 10 },
-  rowStats: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
-  subStats: { flex: 0.48, padding: 15, borderRadius: 15 },
-  statsNum: { fontSize: 18, fontWeight: 'bold', color: '#2c3e50', marginTop: 5 },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 12, paddingHorizontal: 15, marginBottom: 20, borderWidth: 1, borderColor: '#eee', height: 45 },
-  searchInput: { flex: 1, fontSize: 14, color: '#2c3e50' },
-  card: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 15, padding: 15, marginBottom: 12, borderWidth: 1, borderColor: '#eee' },
-  cardDate: { width: 50, alignItems: 'center', borderRightWidth: 1, borderRightColor: '#eee', justifyContent: 'center' },
-  dateText: { fontSize: 10, color: '#7f8c8d', fontWeight: 'bold' },
-  dateNum: { fontSize: 20, fontWeight: 'bold', color: '#2c3e50' },
-  cardTimeline: { flex: 1, flexDirection: 'row', paddingLeft: 15 },
-  timelineVisual: { alignItems: 'center', width: 20 },
-  dotIn: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#117a65' },
-  line: { width: 1, height: 35, backgroundColor: '#eee', marginVertical: 2 },
-  dotOut: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#eee' },
-  timeContent: { marginLeft: 10 },
-  timeLabel: { fontSize: 12, color: '#7f8c8d' },
-  timeValue: { color: '#2c3e50', fontWeight: 'bold' },
-  locText: { fontSize: 10, color: '#bdc3c7', marginTop: 10 },
-  durationText: { fontSize: 11, color: '#27ae60', fontWeight: 'bold', marginTop: 4 },
-  cardBadge: { justifyContent: 'center' },
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  badgeOn: { backgroundColor: '#fff3e0' },
-  badgeOff: { backgroundColor: '#e8f8f5' },
-  badgeText: { fontSize: 10, fontWeight: 'bold' },
-  badgeTextOn: { color: '#e67e22' },
-  badgeTextOff: { color: '#117a65' },
-  fab: { position: 'absolute', bottom: 100, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#4ecb80', justifyContent: 'center', alignItems: 'center', elevation: 5 },
-  emptyText: { textAlign: 'center', color: '#95a5a6', marginTop: 20 }
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  headerSection: { paddingHorizontal: 20, paddingVertical: 15 },
+  headerTitle: { fontSize: 26, fontWeight: '800', color: '#1A252F' },
+  headerSubtitle: { fontSize: 14, color: '#95A5A6', marginTop: 2 },
+  
+  mainStatsCard: {
+    backgroundColor: '#117a65',
+    borderRadius: 24,
+    padding: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    elevation: 8,
+    shadowColor: '#117a65',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    marginBottom: 16
+  },
+  statsInfo: { flex: 1 },
+  statsTitle: { color: '#A5D6A7', fontSize: 14, fontWeight: '600' },
+  statsRowMain: { flexDirection: 'row', alignItems: 'baseline', marginTop: 8 },
+  bigNumber: { color: '#FFFFFF', fontSize: 38, fontWeight: 'bold' },
+  bigNumberSub: { color: '#FFFFFF', fontSize: 14, marginLeft: 8, opacity: 0.8 },
+  statsIconBg: { backgroundColor: 'rgba(255,255,255,0.2)', padding: 12, borderRadius: 20 },
+
+  smallStatsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
+  smallStatCard: { flex: 0.48, borderRadius: 20, padding: 15, flexDirection: 'row', alignItems: 'center' },
+  smallStatIconBg: { backgroundColor: '#FFECB3', padding: 8, borderRadius: 12, marginRight: 12 },
+  smallStatLabel: { fontSize: 11, color: '#7F8C8D', fontWeight: '600' },
+  smallStatValue: { fontSize: 15, fontWeight: 'bold', color: '#E67E22' },
+
+  searchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#F1F1F1',
+    marginBottom: 20
+  },
+  searchField: { flex: 1, marginLeft: 10, fontSize: 14, color: '#2C3E50' },
+
+  card: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5 },
+      android: { elevation: 2 }
+    })
+  },
+  cardDateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingRight: 16,
+    borderRightWidth: 1,
+    borderRightColor: '#F5F5F5',
+    width: 60
+  },
+  cardDayText: { fontSize: 11, color: '#9E9E9E', fontWeight: 'bold' },
+  cardNumText: { fontSize: 22, fontWeight: '800', color: '#2C3E50' },
+  cardContent: { flex: 1, paddingLeft: 16 },
+  locationBadge: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#E8F5E9', 
+    alignSelf: 'flex-start', 
+    paddingHorizontal: 8, 
+    paddingVertical: 2, 
+    borderRadius: 6,
+    marginBottom: 8
+  },
+  locationText: { fontSize: 9, color: '#117a65', fontWeight: 'bold', marginLeft: 4 },
+  timeRow: { flexDirection: 'row', alignItems: 'center' },
+  timeLabel: { fontSize: 9, color: '#BDC3C7', fontWeight: 'bold', letterSpacing: 0.5 },
+  timeValue: { fontSize: 16, fontWeight: '700', color: '#2C3E50' },
+  durationTag: { fontSize: 11, color: '#117a65', fontWeight: '600', marginTop: 6 },
+  
+  statusIndicator: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  bgProcess: { backgroundColor: '#FFF3E0' },
+  bgSuccess: { backgroundColor: '#E8F5E9' },
+  bgDanger: { backgroundColor: '#FFEBEE' },
+  txtDanger: { color: '#E53935' },
+  statusLabel: { fontSize: 10, fontWeight: '800' },
+  txtProcess: { color: '#E67E22' },
+  txtSuccess: { color: '#117a65' },
+
+  fab: {
+    position: 'absolute',
+    bottom: 100,
+    right: 20,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#117a65',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#117a65',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8
+  },
+  emptyContainer: { alignItems: 'center', marginTop: 60 },
+  emptyText: { color: '#BDC3C7', marginTop: 10, fontSize: 14 }
 });

@@ -20,153 +20,155 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // IMPORT BOTTOM NAV LOKAL
 import BottomNav from './components/BottomNav';
-import { Colors } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
 
 export default function KaryawanDashboard() {
   const params = useLocalSearchParams();
   const router = useRouter();
-  
-  // State untuk menyimpan nama agar tidak hilang saat refresh
-  const [displayName, setDisplayName] = useState(".");
+  const [displayName, setDisplayName] = useState("Karyawan");
 
-  // Efek untuk memuat data pengguna
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        // 1. Coba ambil dari parameter navigasi dahulu (untuk respon cepat)
         if (params.userName) {
-          const userName = Array.isArray(params.userName) ? params.userName[0] : params.userName;
-          setDisplayName(userName);
+          setDisplayName(Array.isArray(params.userName) ? params.userName[0] : params.userName);
         } else {
-          // 2. Jika params kosong (akibat refresh), ambil dari AsyncStorage
           const jsonValue = await AsyncStorage.getItem('user_session');
           if (jsonValue != null) {
             const responseData = JSON.parse(jsonValue);
-            // Mengambil field 'nama' sesuai response dari Laravel backend Anda
             setDisplayName(responseData.user?.nama || "Karyawan");
-          } else {
-            setDisplayName("Guest");
           }
         }
       } catch (e) {
-        console.error("Gagal memuat session:", e);
-        setDisplayName("Guest");
+        setDisplayName("Karyawan");
       }
     };
-
     loadUserData();
   }, [params.userName]);
 
-  // Fungsi navigasi bottom bar
-  // Ubah fungsi handleNavigation menjadi seperti ini:
   const handleNavigation = (screenName: string) => {
-    if (screenName === 'Absensi') {
-      router.push('/karyawan/Absensi'); // diarahkan ke file Absensi.tsx kamu
-    } else if (screenName === 'Home') {
-      router.push('/karyawan'); // tetap di index.tsx
-    } else if (screenName === 'Gaji') {
-      router.push('/karyawan/gaji'); // diarahkan ke file Calendar.tsx (jika ada)
-    } else if (screenName === 'Profile') {
-      router.push('/karyawan/profile'); // diarahkan ke file Profile.tsx (jika ada)
-    } else if (screenName === 'Produk') {
-      router.push('/karyawan/Produk'); // diarahkan ke file Produk.tsx (jika ada)
-    }
+    const routes: any = {
+      'Absensi': '/karyawan/Absensi',
+      'Home': '/karyawan',
+      'Gaji': '/karyawan/gaji',
+      'Profile': '/karyawan/profile',
+      'Produk': '/karyawan/Produk'
+    };
+    if (routes[screenName]) router.push(routes[screenName]);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
-      {/* 1. HEADER UTAMA */}
-      <View style={styles.headerContainer}>
+      {/* 1. HEADER (Sesuai Gambar 1) */}
+      <View style={styles.header}>
         <View style={styles.headerLeft}>
+          <View style={styles.logoBox}>
             <Image 
               source={require('../../assets/images/Logo1.png')} 
               style={styles.logoImage}
               resizeMode="contain"
             />
-          <Text style={styles.brandName}>KIWARI FRAM</Text>
+          </View>
+          <View>
+            <Text style={styles.brandSubtitle}>AGRITRACK SYSTEM</Text>
+            <Text style={styles.brandName}>KIWARI FARM</Text>
+          </View>
         </View>
-        <TouchableOpacity style={styles.profileButton}
-         onPress={() => router.push('/karyawan/profile')}
-        >
-          <Ionicons name="person-outline" size={22} color="#333" />
+        <TouchableOpacity style={styles.ProfileButton} onPress={() => router.push('/karyawan/profile')}>
+          <Ionicons name="person" size={22} color="#000000" />
+          <View style={styles.ProfileNotifDot} />
         </TouchableOpacity>
       </View>
 
       <ScrollView 
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={false} 
         contentContainerStyle={styles.scrollContent}
       >
-        {/* 2. WELCOME / PROFILE CARD */}
-        <TouchableOpacity style={styles.welcomeCard}
-          onPress={() => router.push('/karyawan/profile')}
+        {/* 2. WELCOME CARD (Sesuai Gambar 1) */}
+        <View style={styles.welcomeCard}>
+          <View style={styles.welcomeTextContent}>
+            <Text style={styles.greetingText}>Selamat Pagi, 👋</Text>
+            <Text style={styles.profileName} numberOfLines={1}>{displayName}</Text>
+            <View style={styles.activeBadge}>
+              <Text style={styles.activeBadgeText}>Karyawan Aktif</Text>
+            </View>
+          </View>
+          {/* Ikon Dekoratif Dashboard */}
+          <MaterialCommunityIcons name="view-dashboard-outline" size={80} color="rgba(255,255,255,0.2)" style={styles.cardIllustration} />
+        </View>
+
+        {/* 3. MENU AKSES (Sesuai Gambar 2) */}
+        <Text style={styles.sectionTitle}>MENU AKSES</Text>
+        
+        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/karyawan/Absensi')}>
+          <View style={[styles.menuIconBg, { backgroundColor: '#E8F5E9' }]}>
+            <MaterialCommunityIcons name="fingerprint" size={26} color="#117a65" />
+          </View>
+          <View style={styles.menuTextContent}>
+            <Text style={styles.menuTitle}>Absensi</Text>
+            <Text style={styles.menuSub}>Masuk & Pulang</Text>
+          </View>
+          <Ionicons name="chevron-forward-circle" size={20} color="#E0E0E0" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/karyawan/gaji')}>
+          <View style={[styles.menuIconBg, { backgroundColor: '#E0F2F1' }]}>
+            <MaterialCommunityIcons name="bank-transfer" size={26} color="#00796B" />
+          </View>
+          <View style={styles.menuTextContent}>
+            <Text style={styles.menuTitle}>Informasi Gaji</Text>
+            <Text style={styles.menuSub}>Slip & Total Jam</Text>
+          </View>
+          <Ionicons name="chevron-forward-circle" size={20} color="#E0E0E0" />
+        </TouchableOpacity>
+
+        {/* 4. GPS ALERT (Sesuai Gambar 2) */}
+        {/* <View style={styles.gpsAlert}>
+          <Ionicons name="information-circle" size={18} color="#B8860B" />
+          <Text style={styles.gpsText}>
+            Pastikan mengaktifkan GPS sebelum melakukan Absensi kehadiran.
+          </Text>
+        </View> */}
+
+        {/* 5. ELEMEN BARU: RINGKASAN KEHADIRAN (Visual Stat) */}
+        <Text style={styles.sectionTitle}>RINGKASAN MINGGU INI</Text>
+        <View style={styles.statsCard}>
+          <View style={styles.statInfo}>
+            <Text style={styles.statMainText}>85%</Text>
+            <Text style={styles.statLabel}>Tingkat Kehadiran</Text>
+          </View>
+          <View style={styles.progressBarContainer}>
+            <View style={styles.progressBarBg}>
+              <View style={[styles.progressBarFill, { width: '85%' }]} />
+            </View>
+            <Text style={styles.progressDetail}>5 Hari Masuk / 6 Hari Kerja</Text>
+          </View>
+        </View>
+
+        {/* 6. BUTUH BANTUAN (Sesuai Gambar 2) */}
+        <Text style={styles.sectionTitle}>BUTUH BANTUAN?</Text>
+        <TouchableOpacity 
+          style={styles.supportCard}
+          onPress={() => router.push('https://wa.me/628123456789')}
         >
-          <View style={styles.welcomeTextContainer}>
-            <Text style={styles.greetingText}>Good Morning,</Text>
-            <Text style={styles.profileName}>{displayName}</Text>
-            <Text >Selamat datang di aplikasi Agritrack</Text>
+          <View style={styles.supportIconBg}>
+            <Ionicons name="headset" size={20} color="#FFF" />
           </View>
-          <View style={styles.cardCircleDecorative} />
+          <View style={styles.menuTextContent}>
+            <Text style={styles.supportTitle}>Hubungi Layanan Admin</Text>
+            <Text style={styles.supportSub}>kiwari@gmail.com (08.00 - 16.00)</Text>
+          </View>
+          <View style={styles.waBadge}>
+            <Text style={styles.waBadgeText}>WhatsApp</Text>
+          </View>
         </TouchableOpacity>
 
-        {/* 3. METRICS STATS SECTION */}
-        <View style={styles.statsRow}>
-          <TouchableOpacity style={styles.statBox} onPress={() => router.push('/karyawan/Absensi')}>
-            <View style={styles.statHeaderRow}>
-              <View style={[styles.iconWrapper, { backgroundColor: '#fdf6e2' }]}>
-                <Ionicons name="time-outline" size={18} color="#b8860b" />
-              </View>
-            </View>
-            <Text style={styles.statLabel}>Buay Absen Baru?</Text>
-            <Text style={styles.statValue}>
-              Absensi
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.statBox} onPress={() => router.push('/karyawan/gaji')}>
-            <View style={styles.statHeaderRow}>
-              <View style={[styles.iconWrapper, { backgroundColor: '#e8f8f5' }]}>
-                <Ionicons name="trending-up-outline" size={18} color="#117a65" />
-              </View>
-              {/* <View style={styles.ringChart} /> */}
-            </View>
-            <Text style={styles.statLabel}>Informasi Gaji</Text>
-            <Text style={styles.statValue}>Gajian!!</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 4. TODAY'S TASKS TITLE */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Need Help?</Text>
-          {/* <TouchableOpacity style={styles.viewScheduleBtn}>
-            <Text style={styles.viewScheduleText}>View Schedule</Text>
-            <Ionicons name="arrow-forward-outline" size={14} color="#117a65" />
-          </TouchableOpacity> */}
-        </View>
-
-        {/* 5. LIST DAFTAR TUGAS */}
-        <TouchableOpacity style={[styles.taskCard, { borderLeftColor: '#10e633' }]} onPress={() => router.push('https://wa.me/628123456789?text=Halo%20Admin%20KIWARI%20FRAM%2C%20saya%20ingin%20bertanya%20tentang%20absensi.')}>
-          <View style={[styles.taskIconCircle, { backgroundColor: '#fdf2f2' }]}>
-            <MaterialCommunityIcons name="email-outline" size={24} color="#009407" />
-          </View>
-          <View style={styles.taskDetails}>
-            <Text style={styles.taskTitle}>kiwar@gmail.com</Text>
-            <View style={styles.taskMetaRow}>
-              <Ionicons name="time-outline" size={12} color="#7f8c8d" style={{ marginRight: 3 }} />
-              <Text style={styles.taskMetaText}>buka 08.00 - 16.00</Text>
-            </View>
-          </View>
-          <View style={[styles.tagBadge, { backgroundColor: '#fdf2f2' }]}>
-            <Text style={[styles.tagText, { color: '#c0392b' }]}>URGENT</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={16} color="#bdc3c7" />
-        </TouchableOpacity>
+        <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* 6. BOTTOM NAVIGATION COMPONENT */}
       <BottomNav activeScreen="Home" onNavPress={handleNavigation} />
     </SafeAreaView>
   );
@@ -175,215 +177,244 @@ export default function KaryawanDashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    backgroundColor: '#FFFFFF',
   },
-  headerContainer: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#f8f9fa',
+    paddingVertical: 15,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
   },
-
+  logoBox: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
   logoImage: {
-    width: 65,
-    height: 65,
-
+    width: 30,
+    height: 30,
+  },
+  brandSubtitle: {
+    fontSize: 10,
+    color: '#95A5A6',
+    fontWeight: '600',
+    letterSpacing: 1,
   },
   brandName: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#c08607',
+    fontWeight: '800',
+    color: '#B8860B',
   },
-  profileButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  ProfileButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#eaeaea',
+  },
+  ProfileNotifDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF3B30',
+    position: 'absolute',
+    top: 4,
+    right: 4,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 10,
   },
   welcomeCard: {
-    width: '100%',
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    backgroundColor: '#117a65',
+    borderRadius: 25,
+    padding: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+    marginTop: 10,
+    marginBottom: 25,
   },
-  welcomeTextContainer: {
+  welcomeTextContent: {
+    flex: 1,
     zIndex: 2,
   },
   greetingText: {
-    fontSize: 13,
-    color: '#27ae60',
-    fontWeight: '600',
-    marginBottom: 4,
+    color: '#A5D6A7',
+    fontSize: 14,
+    marginBottom: 5,
   },
   profileName: {
-    fontSize: 22,
+    color: '#FFFFFF',
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  cardCircleDecorative: {
+  activeBadge: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 15,
+    alignSelf: 'flex-start',
+  },
+  activeBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  cardIllustration: {
     position: 'absolute',
-    top: -40,
-    right: -30,
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: '#f4fbf7',
-    zIndex: 1,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 25,
-  },
-  statBox: {
-    width: (width - 55) / 2,
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-  },
-  statHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  iconWrapper: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  miniChart: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    width: 35,
-    height: 22,
-    justifyContent: 'space-between',
-  },
-  chartBar: {
-    width: 5,
-    borderRadius: 2,
-  },
-  ringChart: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 3,
-    borderColor: '#117a65',
-    backgroundColor: 'transparent',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#7f8c8d',
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-  },
-  statSubValue: {
-    fontSize: 12,
-    color: '#95a5a6',
-    fontWeight: 'normal',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
+    right: -10,
+    bottom: -10,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1a252f',
-  },
-  viewScheduleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  viewScheduleText: {
     fontSize: 12,
-    color: '#117a65',
-    fontWeight: '600',
-    marginRight: 4,
+    fontWeight: '800',
+    color: '#7F8C8D',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+    marginTop: 5,
   },
-  taskCard: {
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 14,
+    backgroundColor: '#FFFFFF',
+    padding: 15,
+    borderRadius: 20,
     marginBottom: 12,
-    borderLeftWidth: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  taskIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+  menuIconBg: {
+    width: 50,
+    height: 50,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 15,
   },
-  taskDetails: {
+  menuTextContent: {
     flex: 1,
   },
-  taskTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 4,
+  menuTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2C3E50',
   },
-  taskMetaRow: {
+  menuSub: {
+    fontSize: 12,
+    color: '#95A5A6',
+    marginTop: 2,
+  },
+  gpsAlert: {
     flexDirection: 'row',
+    backgroundColor: '#FFFBE6',
+    padding: 15,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#FFE58F',
     alignItems: 'center',
+    marginBottom: 25,
   },
-  taskMetaText: {
-    fontSize: 11,
-    color: '#7f8c8d',
+  gpsText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#B8860B',
+    fontWeight: '600',
+    marginLeft: 10,
+    lineHeight: 18,
   },
-  tagBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+  statsCard: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 25,
+  },
+  statInfo: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 10,
+  },
+  statMainText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#117a65',
     marginRight: 8,
   },
-  tagText: {
-    fontSize: 9,
-    fontWeight: 'bold',
+  statLabel: {
+    fontSize: 13,
+    color: '#7F8C8D',
+  },
+  progressBarContainer: {
+    width: '100%',
+  },
+  progressBarBg: {
+    height: 8,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#117a65',
+    borderRadius: 4,
+  },
+  progressDetail: {
+    fontSize: 11,
+    color: '#95A5A6',
+    fontWeight: '500',
+  },
+  supportCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 15,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    elevation: 1,
+  },
+  supportIconBg: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#2196F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  supportTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2C3E50',
+  },
+  supportSub: {
+    fontSize: 11,
+    color: '#95A5A6',
+  },
+  waBadge: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  waBadgeText: {
+    fontSize: 10,
+    color: '#117a65',
+    fontWeight: '800',
   },
 });

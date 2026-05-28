@@ -9,7 +9,7 @@ use App\Http\Controllers\GajiControllers;
 use App\Http\Controllers\KreditControllers;
 use App\Http\Controllers\KaryawanController;
 use App\Http\Controllers\ProdukControllers;
-
+use App\Http\Controllers\CashFlowControllers;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -52,3 +52,12 @@ Route::get('Produk', [ProdukControllers::class, 'index']);
 Route::post('add-produk', [ProdukControllers::class, 'store']);
 Route::put('update-produk/{id}', [ProdukControllers::class, 'update']);
 Route::delete('delete-produk/{id}', [ProdukControllers::class, 'destroy']);
+
+// ... route lainnya
+
+// Tambahkan ini agar Mobile bisa mengambil list laporan
+Route::get('/owner/laporan-list', [CashFlowControllers::class, 'getListLaporan']);
+
+// Pastikan route pdf juga ada (sudah ada di code kamu, tapi pastikan posisinya benar)
+Route::get('/mobile/cashflow/pdf', [CashFlowControllers::class, 'downloadPDF']);
+

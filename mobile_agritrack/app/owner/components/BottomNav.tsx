@@ -9,8 +9,8 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface BottomNavProps {
-  activeScreen: 'Home' | 'Pengeluaran' | 'Karyawan' | 'Profile';
-  onNavPress?: (screen: string) => void;
+  activeScreen: 'Home' | 'Pengeluaran' | 'Karyawan' | 'Laporan' | 'Profile';
+  onNavPress?: (screen: 'Home' | 'Pengeluaran' | 'Karyawan' | 'Laporan' | 'Profile') => void;
 }
 
 export default function BottomNav({ activeScreen, onNavPress }: BottomNavProps) {
@@ -67,7 +67,22 @@ export default function BottomNav({ activeScreen, onNavPress }: BottomNavProps) 
         </Text>
       </TouchableOpacity>
 
-      {/* Tombol Profile */}
+      {/* Tombol Laporan */}
+      <TouchableOpacity 
+        style={styles.navItem} 
+        onPress={() => onNavPress?.('Laporan')}
+      >
+        {activeScreen === 'Laporan' ? (
+          <View style={styles.activeNavBg}>
+            <MaterialCommunityIcons name="file-document" size={20} color="#ffffff" />
+          </View>
+        ) : (
+          <MaterialCommunityIcons name="file-document-outline" size={22} color="#bdc3c7" />
+        )}
+        <Text style={[styles.navText, activeScreen === 'Laporan' && styles.activeNavText]}>
+          Laporan
+        </Text>
+      </TouchableOpacity>
       <TouchableOpacity 
         style={styles.navItem} 
         onPress={() => onNavPress?.('Profile')}

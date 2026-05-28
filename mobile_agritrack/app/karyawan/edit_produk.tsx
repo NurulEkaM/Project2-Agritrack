@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,14 +8,17 @@ import {
   ScrollView,
   SafeAreaView,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Image // Tambahkan Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker'; // Tambahkan ImagePicker
 
 export default function EditProdukScreen() {
-  const params = useLocalSearchParams(); // Mengambil data produk dari navigasi
+  const params = useLocalSearchParams();
   const [loading, setLoading] = useState(false);
+  const [newImage, setNewImage] = useState<any>(null); // Untuk menampung gambar baru jika diganti
   
   const [form, setForm] = useState({
     nama_produk: params.nama_produk as string || '',
@@ -24,31 +27,65 @@ export default function EditProdukScreen() {
     deskripsi: params.deskripsi as string || '',
   });
 
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      setNewImage(result.assets[0]);
+    }
+  };
+
   const handleUpdate = async () => {
     setLoading(true);
+    
+    // Gunakan FormData karena kita mungkin mengirim file gambar
+    const formData = new FormData();
+    formData.append('_method', 'PUT'); // Laravel membutuhkan ini jika method spoofing PUT via FormData
+    formData.append('nama_produk', form.nama_produk);
+    formData.append('harga_satuan', form.harga_satuan);
+    formData.append('stok', form.stok);
+    formData.append('deskripsi', form.deskripsi);
+
+    if (newImage) {
+      const uri = newImage.uri;
+      const fileType = uri.split('.').pop();
+      formData.append('gambar', {
+        uri: uri,
+        name: `updated_produk.${fileType}`,
+        type: `image/${fileType}`,
+      } as any);
+    }
+
     try {
+      // Gunakan POST dengan _method PUT untuk upload file di Laravel
       const response = await fetch(`http://10.0.2.2:8000/api/update-produk/${params.id_produk}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nama_produk: form.nama_produk,
-          harga_satuan: parseFloat(form.harga_satuan),
-          stok: parseInt(form.stok),
-          deskripsi: form.deskripsi,
-        }),
+        method: 'POST', 
+        headers: {
+          'Accept': 'application/json',
+        },
+        body: formData,
       });
 
       if (response.ok) {
         Alert.alert('Sukses', 'Produk berhasil diperbarui');
         router.replace('/karyawan/Produk');
+      } else {
+        const err = await response.json();
+        Alert.alert('Gagal', err.message || 'Gagal update data');
       }
     } catch (error) {
-      Alert.alert('Error', 'Gagal update data');
+      Alert.alert('Error', 'Gagal terhubung ke server');
     } finally {
       setLoading(false);
     }
   };
 
+  // ... handleDelete tetap sama ...
   const handleDelete = () => {
     Alert.alert(
       'Hapus Produk',
@@ -86,14 +123,24 @@ export default function EditProdukScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Product Image Preview */}
         <View style={styles.imageContainer}>
-          <View style={styles.imageBox}>
-            <Ionicons name="leaf" size={60} color="#117a65" />
-            <TouchableOpacity style={styles.editImageIcon}>
+          <TouchableOpacity style={styles.imageBox} onPress={pickImage}>
+            {/* Logika Tampilan Gambar: Prioritas gambar baru, lalu gambar lama, lalu icon */}
+            {newImage ? (
+              <Image source={{ uri: newImage.uri }} style={styles.imagePreview} />
+            ) : params.gambar ? (
+              <Image 
+                source={{ uri: `http://10.0.2.2:8000/storage/${params.gambar}` }} 
+                style={styles.imagePreview} 
+              />
+            ) : (
+              <Ionicons name="leaf" size={60} color="#117a65" />
+            )}
+            
+            <View style={styles.editImageIcon}>
               <Ionicons name="camera" size={16} color="black" />
-            </TouchableOpacity>
-          </View>
+            </View>
+          </TouchableOpacity>
           <Text style={styles.refText}>PRODUCT ID: #{params.id_produk}</Text>
         </View>
 
@@ -139,7 +186,6 @@ export default function EditProdukScreen() {
           {loading ? <ActivityIndicator color="white" /> : <Text style={styles.updateText}>SAVE CHANGES</Text>}
         </TouchableOpacity>
 
-        {/* Danger Zone (Seperti di Gambar) */}
         <Text style={[styles.label, { color: '#e74c3c', marginTop: 30 }]}>Danger Zone</Text>
         <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
           <Ionicons name="trash-outline" size={18} color="#e74c3c" />
@@ -156,8 +202,9 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 16, fontWeight: 'bold' },
   scrollContent: { padding: 20 },
   imageContainer: { alignItems: 'center', marginBottom: 30 },
-  imageBox: { width: 120, height: 120, backgroundColor: '#f0f0f0', borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  editImageIcon: { position: 'absolute', bottom: -5, right: -5, backgroundColor: '#ffd700', padding: 8, borderRadius: 10 },
+  imageBox: { width: 120, height: 120, backgroundColor: '#f0f0f0', borderRadius: 20, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  imagePreview: { width: '100%', height: '100%' },
+  editImageIcon: { position: 'absolute', bottom: 5, right: 5, backgroundColor: '#ffd700', padding: 8, borderRadius: 10, elevation: 5 },
   refText: { marginTop: 10, fontSize: 12, color: '#bdc3c7' },
   label: { fontSize: 12, fontWeight: 'bold', color: '#7f8c8d', marginBottom: 8 },
   input: { borderWidth: 1, borderColor: '#f0f0f0', borderRadius: 10, padding: 12, marginBottom: 20, color: '#2c3e50' },

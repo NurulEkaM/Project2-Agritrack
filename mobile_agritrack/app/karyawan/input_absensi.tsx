@@ -1,211 +1,196 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  StyleSheet, Text, View, TextInput, TouchableOpacity,
-  SafeAreaView, ScrollView, StatusBar, Platform, Alert, ActivityIndicator
+  StyleSheet, Text, View, TouchableOpacity, SafeAreaView, 
+  ScrollView, StatusBar, Alert, ActivityIndicator, Image
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera'; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import { Picker } from '@react-native-picker/picker';
 
 export default function FormAbsensiScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState<boolean>(false);
-  
-  // State Data User & Waktu
+  const [permission, requestPermission] = useCameraPermissions();
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const cameraRef = useRef<any>(null);
+
   const [userId, setUserId] = useState<number | null>(null);
   const [employeeName, setEmployeeName] = useState<string>('Memuat...');
-  const [jobTitle, setJobTitle] = useState<string>('Farm Supervisor'); 
-  const [currentDateTimeStr, setCurrentDateTimeStr] = useState<string>(''); // Untuk Tampilan UI
-  const [waktuKunciBackend, setWaktuKunciBackend] = useState<string>(''); // UNTUK DIKIRIM KE DATABASE
+  const [currentDateTimeStr, setCurrentDateTimeStr] = useState(''); // Untuk Tampilan User
+  const [waktuKunciBackend, setWaktuKunciBackend] = useState(''); // Untuk Database
 
-  // State Form Input Data
-  const [jenisAbsen, setJenisAbsen] = useState<'absen_datang' | 'lembur_datang' | 'tidak_hadir'>('absen_datang');
-  const [lokasi, setLokasi] = useState<'kebun_lanud' | 'kebun_sadang'>('kebun_lanud'); 
-  
-  const [showDropdownAbsen, setShowDropdownAbsen] = useState<boolean>(false);
-  const [showDropdownLokasi, setShowDropdownLokasi] = useState<boolean>(false);
+  const [jenisAbsen, setJenisAbsen] = useState<'absen_datang' | 'tidak_hadir' | 'lembur_datang'>('absen_datang');
+  const [lokasi, setLokasi] = useState<'kebun_lanud' | 'kebun_sadang'>('kebun_lanud');
 
   useEffect(() => {
     loadUserSession();
-    lockDateTimeOnOpen(); // Kunci waktu saat komponen pertama kali dibuka
+    lockDateTimeOnOpen(); // Kunci waktu saat komponen pertama kali dirender
+    if (!permission?.granted) {
+      requestPermission();
+    }
   }, []);
 
   const loadUserSession = async () => {
-    try {
-      const jsonValue = await AsyncStorage.getItem('user_session');
-      if (jsonValue != null) {
-        const sessionData = JSON.parse(jsonValue);
-        setUserId(sessionData.user?.id_user || null);
-        setEmployeeName(sessionData.user?.nama || 'Karyawan');
-      }
-    } catch (e) {
-      console.error("Gagal memuat sesi user:", e);
+    const jsonValue = await AsyncStorage.getItem('user_session');
+    if (jsonValue != null) {
+      const sessionData = JSON.parse(jsonValue);
+      setUserId(sessionData.user?.id_user || null);
+      setEmployeeName(sessionData.user?.nama || 'Karyawan');
     }
   };
 
-  // FUNGSI UNTUK MENGUNCI WAKTU (FREEZE TIME)
+  /**
+   * Mengunci waktu saat halaman dibuka
+   */
   const lockDateTimeOnOpen = () => {
-    const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    
     const now = new Date();
     
-    // 1. Format untuk Tampilan UI (Readable)
-    const day = now.getDate().toString().padStart(2, '0');
-    const monthName = months[now.getMonth()];
-    const year = now.getFullYear();
-    let hoursDisplay = now.getHours();
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const ampm = hoursDisplay >= 12 ? 'PM' : 'AM';
-    hoursDisplay = hoursDisplay % 12 || 12;
-    const hoursStr = hoursDisplay.toString().padStart(2, '0');
-    setCurrentDateTimeStr(`${monthName} ${day}, ${year} — ${hoursStr}:${minutes} ${ampm}`);
+    // Format Manual YYYY-MM-DD HH:mm:ss
+    const pad = (n: number) => n < 10 ? '0' + n : n;
+    const formattedDate = 
+      now.getFullYear() + "-" + 
+      pad(now.getMonth() + 1) + "-" + 
+      pad(now.getDate()) + " " + 
+      pad(now.getHours()) + ":" + 
+      pad(now.getMinutes()) + ":" + 
+      pad(now.getSeconds());
 
-    // 2. Format untuk Backend (YYYY-MM-DD HH:mm:ss)
-    const monthNum = String(now.getMonth() + 1).padStart(2, '0');
-    const hours24 = String(now.getHours()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    setWaktuKunciBackend(`${year}-${monthNum}-${day} ${hours24}:${minutes}:${seconds}`);
+    setWaktuKunciBackend(formattedDate);
+    setCurrentDateTimeStr(now.toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' }));
+  };
+
+  const takePicture = async () => {
+    if (cameraRef.current) {
+      try {
+        const data = await cameraRef.current.takePictureAsync({
+          quality: 0.4,
+          base64: true,
+        });
+        setPhotoBase64(data.base64);
+        setIsCameraOpen(false);
+      } catch (err) {
+        Alert.alert("Eror", "Gagal mengambil foto.");
+      }
+    }
   };
 
   const handleSubmitAttendance = async () => {
-    if (!userId) {
-      Alert.alert('Eror', 'ID Pengguna tidak ditemukan. Silakan login ulang.');
+    if (!photoBase64 && jenisAbsen !== 'tidak_hadir') {
+      Alert.alert('Gagal', 'Wajib ambil foto selfie!');
       return;
     }
 
     setLoading(true);
     try {
-      const API_URL = 'http://10.0.2.2:8000/api/add-absensi'; 
-
-      const response = await fetch(API_URL, {
+      const response = await fetch('http://10.0.2.2:8000/api/add-absensi', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
           id_user: userId,
           status: jenisAbsen,
           lokasi: lokasi,
-          tanggal_datang: waktuKunciBackend // MENGIRIM WAKTU YANG SUDAH DIKUNCI
+          tanggal_datang: waktuKunciBackend, // Mengirim waktu yang sudah dikunci
+          image: photoBase64, 
         }),
       });
 
       const data = await response.json();
-
       if (response.ok && data.success) {
-        Alert.alert('Sukses', 'Absensi berhasil dikirim!', [
-          { text: 'OK', onPress: () => router.replace('/karyawan/Absensi') }
-        ]);
+        Alert.alert('Sukses', 'Absensi berhasil!', [{ text: 'OK', onPress: () => router.replace('/karyawan/Absensi') }]);
       } else {
-        Alert.alert('Gagal', data.message || 'Terjadi kesalahan pada server.');
+        Alert.alert('Gagal', data.message || 'Anda sudah absen hari ini.');
       }
-    } catch (error) {
-      Alert.alert('Eror', 'Tidak dapat terhubung ke server backend.');
+    } catch (e) {
+      Alert.alert('Eror', 'Koneksi server gagal');
     } finally {
       setLoading(false);
     }
   };
 
-  const getDropdownLabel = (value: string) => {
-    if (value === 'absen_datang') return 'Absen Masuk';
-    if (value === 'lembur_datang') return 'Lembur Datang';
-    return 'Tidak Hadir';
-  };
-
-  const getLokasiLabel = (value: string) => {
-    if (value === 'kebun_lanud') return 'Kebun Lanud';
-    return 'Kebun Sadang';
-  };
+  if (isCameraOpen) {
+    return (
+      <View style={{ flex: 1, backgroundColor: 'black' }}>
+        <CameraView style={StyleSheet.absoluteFillObject} facing="front" ref={cameraRef} />
+        <View style={styles.cameraOverlay}>
+          <TouchableOpacity onPress={() => setIsCameraOpen(false)} style={styles.closeCam}>
+            <Ionicons name="close-circle" size={45} color="white" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={takePicture} style={styles.captureBtn} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+      <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#117a65" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Absensi</Text>
+        <TouchableOpacity onPress={() => router.back()}><Ionicons name="chevron-back" size={24} color="#117a65" /></TouchableOpacity>
+        <Text style={styles.headerTitle}>Absensi Datang</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollPadding}>
-        <View style={styles.greenBanner}>
-          <Text style={styles.bannerTitle}>Attendance Form</Text>
-          <Text style={styles.bannerSubtitle}>Please record your shift activities for today.</Text>
-        </View>
-
+      <ScrollView contentContainerStyle={styles.scrollPadding}> 
         <View style={styles.infoCard}>
-          <View style={styles.inputGroup}>
             <Text style={styles.fieldLabel}>Employee Name</Text>
-            <View style={styles.readOnlyInput}>
-              <Ionicons name="person-outline" size={16} color="#117a65" style={styles.fieldIcon} />
-              <Text style={styles.readOnlyText}>{employeeName}</Text>
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.fieldLabel}>Date and Time (Locked)</Text>
-            <View style={styles.readOnlyInput}>
-              <Ionicons name="time-outline" size={16} color="#117a65" style={styles.fieldIcon} />
-              <Text style={styles.readOnlyText}>{currentDateTimeStr}</Text>
-            </View>
-          </View>
+            <View style={styles.readOnlyInput}><Text style={styles.readOnlyText}>{employeeName}</Text></View>
+            
+            <Text style={[styles.fieldLabel, {marginTop: 10}]}>Waktu Terkunci (Buka Halaman)</Text>
+            <View style={styles.readOnlyInput}><Text style={styles.readOnlyText}>{currentDateTimeStr}</Text></View>
         </View>
 
-        {/* DROPDOWN JENIS ABSENSI */}
         <View style={styles.inputGroup}>
-          <Text style={styles.fieldLabelActive}>Jenis Absensi <Text style={styles.requiredText}>(REQUIRED)</Text></Text>
-          <TouchableOpacity 
-            style={styles.dropdownSelector}
-            onPress={() => { setShowDropdownAbsen(!showDropdownAbsen); setShowDropdownLokasi(false); }}
-          >
-            <Text style={styles.dropdownSelectorText}>{getDropdownLabel(jenisAbsen)}</Text>
-            <Ionicons name={showDropdownAbsen ? "chevron-up" : "chevron-down"} size={18} color="#7f8c8d" />
-          </TouchableOpacity>
-
-          {showDropdownAbsen && (
-            <View style={styles.dropdownMenu}>
-              <TouchableOpacity style={styles.dropdownItem} onPress={() => { setJenisAbsen('absen_datang'); setShowDropdownAbsen(false); }}>
-                <Text style={styles.dropdownItemText}>Absen Masuk</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.dropdownItem} onPress={() => { setJenisAbsen('lembur_datang'); setShowDropdownAbsen(false); }}>
-                <Text style={styles.dropdownItemText}>Lembur Datang</Text>
+          <Text style={styles.fieldLabelActive}>Bukti Foto Selfie <Text style={{color:'red'}}>*</Text></Text>
+          {photoBase64 ? (
+            <View style={styles.previewBox}>
+              <Image source={{ uri: `data:image/png;base64,${photoBase64}` }} style={styles.previewImg} />
+              <TouchableOpacity onPress={() => setIsCameraOpen(true)} style={styles.reTakeBtn}>
+                <Ionicons name="refresh" size={16} color="white" />
+                <Text style={{color: 'white', fontWeight: 'bold', marginLeft: 5}}>Ambil Ulang</Text>
               </TouchableOpacity>
             </View>
+          ) : (
+            <TouchableOpacity style={styles.cameraTrigger} onPress={() => setIsCameraOpen(true)}>
+              <Ionicons name="camera" size={40} color="#117a65" />
+              <Text style={{color: '#117a65', marginTop: 8, fontWeight: '600'}}>Ambil Foto</Text>
+            </TouchableOpacity>
           )}
         </View>
 
-        {/* DROPDOWN LOKASI */}
         <View style={styles.inputGroup}>
-          <Text style={styles.fieldLabelActive}>Lokasi Kerja <Text style={styles.requiredText}>(REQUIRED)</Text></Text>
-          <TouchableOpacity 
-            style={styles.dropdownSelector}
-            onPress={() => { setShowDropdownLokasi(!showDropdownLokasi); setShowDropdownAbsen(false); }}
-          >
-            <Text style={styles.dropdownSelectorText}>{getLokasiLabel(lokasi)}</Text>
-            <Ionicons name={showDropdownLokasi ? "chevron-up" : "chevron-down"} size={18} color="#7f8c8d" />
-          </TouchableOpacity>
-
-          {showDropdownLokasi && (
-            <View style={styles.dropdownMenu}>
-              <TouchableOpacity style={styles.dropdownItem} onPress={() => { setLokasi('kebun_lanud'); setShowDropdownLokasi(false); }}>
-                <Text style={styles.dropdownItemText}>Kebun Lanud</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.dropdownItem, { borderBottomWidth: 0 }]} onPress={() => { setLokasi('kebun_sadang'); setShowDropdownLokasi(false); }}>
-                <Text style={styles.dropdownItemText}>Kebun Sadang</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          <Text style={styles.fieldLabelActive}>Jenis Absensi</Text>
+          <View style={styles.pickerWrapper}>
+            <Picker selectedValue={jenisAbsen} onValueChange={(item) => setJenisAbsen(item)}>
+              <Picker.Item label="Absen Masuk" value="absen_datang" />
+              <Picker.Item label="Lembur Datang" value="lembur_datang" />
+              <Picker.Item label="Tidak Hadir" value="tidak_hadir" />
+            </Picker>
+          </View>
         </View>
 
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmitAttendance} disabled={loading}>
-          {loading ? <ActivityIndicator color="#ffffff" /> : (
-            <View style={styles.submitButtonInner}>
-              <MaterialCommunityIcons name="fingerprint" size={20} color="#ffffff" style={{ marginRight: 8 }} />
-              <Text style={styles.submitButtonText}>Submit Attendance</Text>
+        <View style={styles.inputGroup}>
+          <Text style={styles.fieldLabelActive}>Lokasi Kerja</Text>
+          <View style={styles.pickerWrapper}>
+            <Picker selectedValue={lokasi} onValueChange={(item) => setLokasi(item)}>
+              <Picker.Item label="Kebun Lanud" value="kebun_lanud" />
+              <Picker.Item label="Kebun Sadang" value="kebun_sadang" />
+            </Picker>
+          </View>
+        </View>
+
+        <TouchableOpacity 
+            style={[styles.submitButton, loading && { opacity: 0.7 }]} 
+            onPress={handleSubmitAttendance} 
+            disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialCommunityIcons name="fingerprint" size={24} color="white" style={{marginRight: 10}} />
+                <Text style={styles.submitButtonText}>Submit Absensi</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -214,168 +199,25 @@ export default function FormAbsensiScreen() {
   );
 }
 
-// ... styles tetap sama seperti kode Anda ...
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderColor: '#eaeaea',
-  },
-  backButton: {
-    marginRight: 12,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#117a65',
-  },
-  scrollPadding: {
-    paddingHorizontal: 20,
-    paddingTop: 15,
-  },
-  greenBanner: {
-    backgroundColor: '#4ecb80', 
-    borderRadius: 14,
-    padding: 20,
-    marginBottom: 20,
-  },
-  bannerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginBottom: 6,
-  },
-  bannerSubtitle: {
-    fontSize: 12,
-    color: '#e8f8f5',
-    lineHeight: 18,
-  },
-  infoCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#eaeaea',
-    marginBottom: 20,
-  },
-  inputGroup: {
-    marginBottom: 18,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    color: '#7f8c8d',
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  fieldLabelActive: {
-    fontSize: 13,
-    color: '#2c3e50',
-    marginBottom: 8,
-    fontWeight: '600',
-  },
-  requiredText: {
-    fontSize: 10,
-    color: '#27ae60',
-    fontWeight: 'bold',
-  },
-  readOnlyInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f2f6',
-    borderRadius: 10,
-    height: 48,
-    paddingHorizontal: 14,
-  },
-  fieldIcon: {
-    marginRight: 10,
-  },
-  readOnlyText: {
-    fontSize: 13,
-    color: '#57606f',
-    fontWeight: '500',
-  },
-  dropdownSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#dcdde1',
-    borderRadius: 12,
-    height: 50,
-    paddingHorizontal: 16,
-  },
-  dropdownSelectorText: {
-    fontSize: 14,
-    color: '#2f3542',
-  },
-  dropdownMenu: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#dcdde1',
-    borderRadius: 12,
-    marginTop: 6,
-    overflow: 'hidden',
-    zIndex: 99,
-  },
-  dropdownItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderColor: '#f1f2f6',
-  },
-  dropdownItemText: {
-    fontSize: 14,
-    color: '#2f3542',
-  },
-  textAreaInput: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#dcdde1',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 14,
-    color: '#2f3542',
-    height: 120,
-  },
-  submitButton: {
-    backgroundColor: '#0a6847', 
-    borderRadius: 25,
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  submitButtonInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  submitButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  noticeText: {
-    textAlign: 'center',
-    fontSize: 11,
-    color: '#7f8c8d',
-    lineHeight: 16,
-    marginTop: 15,
-    paddingHorizontal: 10,
-  },
+  container: { flex: 1, backgroundColor: '#f8f9fa' },
+  header: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#eaeaea' },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#117a65', marginLeft: 10 },
+  scrollPadding: { padding: 20 },
+  infoCard: { backgroundColor: '#fff', padding: 15, borderRadius: 15, marginBottom: 20, elevation: 2 },
+  fieldLabel: { fontSize: 12, color: '#7f8c8d', fontWeight: '600' },
+  fieldLabelActive: { fontSize: 13, color: '#117a65', fontWeight: 'bold', marginBottom: 8 },
+  readOnlyInput: { backgroundColor: '#f1f2f6', padding: 12, borderRadius: 10, marginTop: 5 },
+  readOnlyText: { color: '#2f3542', fontSize: 14 },
+  inputGroup: { marginBottom: 20 },
+  pickerWrapper: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#dcdde1', borderRadius: 12, overflow: 'hidden' },
+  cameraTrigger: { height: 160, borderWidth: 2, borderStyle: 'dashed', borderColor: '#117a65', borderRadius: 20, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f9f7' },
+  previewBox: { alignItems: 'center', backgroundColor: '#fff', padding: 10, borderRadius: 20, borderWidth: 1, borderColor: '#e0e0e0' },
+  previewImg: { width: '100%', height: 250, borderRadius: 15 },
+  reTakeBtn: { backgroundColor: '#e67e22', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10, marginTop: 12, flexDirection: 'row', alignItems: 'center' },
+  cameraOverlay: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 60 },
+  captureBtn: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'white', borderWidth: 6, borderColor: 'rgba(255,255,255,0.3)' },
+  closeCam: { position: 'absolute', top: 50, right: 25 },
+  submitButton: { backgroundColor: '#0a6847', height: 60, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
+  submitButtonText: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
 });

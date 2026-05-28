@@ -142,6 +142,7 @@ export default function ProfileScreen() {
   const handleNavigation = (screenName: string) => {
     if (screenName === 'Home') router.push('/owner');
     if (screenName === 'Karyawan') router.push('/owner/karyawan');
+    if (screenName === 'Laporan') router.push('/owner/laporan');
     if (screenName === 'Pengeluaran') router.push('/owner/pengeluaran');
   };
 
@@ -194,8 +195,8 @@ export default function ProfileScreen() {
         {/* --- STATS BOX (GAJI POKOK & JABATAN) --- */}
         <View style={styles.statsCardContainer}>
           <View style={styles.statsBox}>
-            <Text style={styles.statsLabel}>GAJI POKOK</Text>
-            <Text style={styles.statsValueColor}>{formatGajiSingkat(userData?.gaji)}</Text>
+            <Text style={styles.statsLabel}>Nama</Text>
+            <Text style={styles.statsValueColor}>{userData?.nama || '-'}</Text>
           </View>
           <View style={styles.verticalDivider} />
           <View style={styles.statsBox}>

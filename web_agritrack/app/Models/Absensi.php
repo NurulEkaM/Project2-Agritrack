@@ -17,6 +17,6 @@ class Absensi extends Model
     public $timestamps = false; 
 
     protected $fillable = [
-        'id_user', 'tanggal_datang', 'status', 'kegiatan', 'lokasi', 'total_lembur' , 'tanggal_pulang'
+        'id_user', 'tanggal_datang', 'status', 'kegiatan', 'lokasi', 'total_lembur' , 'tanggal_pulang' , 'image'
     ];
 }

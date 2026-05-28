@@ -63,6 +63,7 @@ const PengeluaranScreen = () => {
     if (screenName === 'Home') router.push('/owner')
         else if (screenName === 'Pengeluaran') router.push('/owner/pengeluaran')
         else if (screenName === 'Karyawan') router.push('/owner/karyawan')
+        else if (screenName === 'Laporan') router.push('/owner/laporan')
         else if (screenName === 'Profile') router.push('/owner/profile');
   };
 
@@ -88,17 +89,27 @@ const PengeluaranScreen = () => {
           <View style={styles.filterCard}>
             <Text style={styles.filterLabel}>JLM SEMUA PENGELUARAN</Text>
             <View style={styles.filterValueContainer}>
-              <Text style={styles.filterValue}>{dataKredit.length}</Text>
-              <Ionicons name="list" size={18} color="#555" />
+              <Text style={styles.filterValue}>
+                {formatRupiah(
+                  dataKredit
+                    .filter(item => item.status === 'setuju') // Filter dulu statusnya
+                    .length
+                )}
+              </Text>
+              <Ionicons name="checkmark-circle" size={18} color="#555" />
             </View>
           </View>
           <View style={styles.filterCard}>
-            <Text style={styles.filterLabel}>JUMLAH UANG</Text>
+            <Text style={styles.filterLabel}>JUMLAH UANG (SETUJU)</Text>
             <View style={styles.filterValueContainer}>
               <Text style={[styles.filterValue, { fontSize: 12 }]}>
-                Rp {formatRupiah(dataKredit.reduce((sum, item) => sum + item.saldo_kredit, 0))}
+                Rp {formatRupiah(
+                  dataKredit
+                    .filter(item => item.status === 'setuju') // Filter dulu statusnya
+                    .reduce((sum, item) => sum + item.saldo_kredit, 0) // Baru dijumlahkan
+                )}
               </Text>
-              <MaterialCommunityIcons name="cash-multiple" size={18} color="#555" />
+              <MaterialCommunityIcons name="cash-check" size={18} color="#117a65" />
             </View>
           </View>
         </View>

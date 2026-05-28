@@ -45,6 +45,7 @@ export default function OwnerDashboard() {
       Home: '/owner',
       Pengeluaran: '/owner/pengeluaran',
       Karyawan: '/owner/karyawan',
+      Laporan: '/owner/laporan',
       Profile: '/owner/profile'
     };
     if (routes[screenName]) router.push(routes[screenName]);

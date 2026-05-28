@@ -7,6 +7,7 @@ use App\Http\Controllers\AbsensiControllers;
 use App\Http\Controllers\DebitControllers;
 use App\Http\Controllers\CashFlowControllers;
 use App\Http\Controllers\GajiControllers;   
+use App\Http\Controllers\TransaksiControllers;
 
 Route::get('/', function () {
     return view('welcome');
@@ -25,6 +26,7 @@ Route::get('/dashboard', function () {
 Route::post('/logout', [LoginControllers::class, 'logout'])->name('logout');
 
 Route::get('/cashflow/page', [CashFlowControllers::class, 'indexCashflow'])->name('cashflow.page');
+Route::get('/cashflow/pdf', [CashFlowControllers::class, 'downloadPDF'])->name('cashflow.pdf');
 
 Route::get('/cashflow/kredit', [KreditControllers::class, 'indexWeb'])->name('admin.kredit');
 Route::get('/cashflow/kredit/{id}/edit', [KreditControllers::class, 'edit'])->name('admin.kredit.edit');
@@ -54,3 +56,6 @@ Route::get('/gaji/page', [GajiControllers::class, 'indexWeb'])->name('gaji.page'
 Route::post('/gaji/generate', [GajiControllers::class, 'generateGaji'])->name('gaji.generate');
 // Route untuk mengubah status menjadi tunggu_konfirmasi
 Route::put('/gaji/konfirmasi/{id}', [GajiControllers::class, 'konfirmasiAdmin'])->name('gaji.konfirmasi');
+
+Route::get('transaksi/page', [TransaksiControllers::class, 'index'])->name('transaksi.page');
+Route::post('transaksi/page', [TransaksiControllers::class, 'store'])->name('transaksi.store');

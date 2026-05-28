@@ -16,8 +16,8 @@
             <span class="text-sm font-semibold">Cashflow</span>
         </a>
 
-        <a href="#" 
-           class="flex items-center space-x-3 px-4 py-3 rounded-xl transition {{ Request::is('transactions*') ? 'bg-[#065F46] text-white shadow-sm' : 'text-gray-400 hover:bg-gray-50' }}">
+        <a href="{{ route('transaksi.page') }}" 
+           class="flex items-center space-x-3 px-4 py-3 rounded-xl transition {{ Request::is('transaksi*') ? 'bg-[#065F46] text-white shadow-sm' : 'text-gray-400 hover:bg-gray-50' }}">
             <i class="fas fa-exchange-alt w-5"></i>
             <span class="text-sm font-semibold">Transactions</span>
         </a>

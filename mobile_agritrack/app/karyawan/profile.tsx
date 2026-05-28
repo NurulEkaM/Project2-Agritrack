@@ -208,8 +208,8 @@ export default function ProfileScreen() {
         {/* --- STATS BOX (GAJI POKOK & MASA KERJA) --- */}
         <View style={styles.statsCardContainer}>
           <View style={styles.statsBox}>
-            <Text style={styles.statsLabel}>GAJI POKOK</Text>
-            <Text style={styles.statsValueColor}>{formatGajiSingkat(userData?.gaji)}</Text>
+            <Text style={styles.statsLabel}>Nama</Text>
+            <Text style={styles.statsValueColor}>{userData?.nama || '-'}</Text>
           </View>
           <View style={styles.verticalDivider} />
           <View style={styles.statsBox}>

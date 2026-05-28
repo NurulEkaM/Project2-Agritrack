@@ -6,6 +6,7 @@
     <p class="text-sm text-gray-400">Monitoring data kehadiran berdasarkan log database project_agritrack.</p>
 </div>
 
+{{-- Statistik Cards --}}
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden group">
         <div class="flex justify-between items-start mb-4">
@@ -56,7 +57,6 @@
         <h3 class="text-lg font-bold text-gray-800">Riwayat Tabel Absensi</h3>
         
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-            {{-- Input Search Bar (Gaya CashFlow) --}}
             <div class="relative w-full md:w-64">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3">
                     <i class="fas fa-search text-gray-400 text-xs"></i>
@@ -66,14 +66,12 @@
                     placeholder="Cari absensi (lokasi/kegiatan/status)...">
             </div>
 
-            {{-- Tombol Export --}}
             <button class="bg-[#F8FAFC] text-xs font-bold text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-100 border border-gray-200/50 whitespace-nowrap">
                 <i class="fas fa-file-export mr-2"></i> Export
             </button>
         </div>
     </div>
 
-    {{-- Alert Notifikasi Sukses --}}
     @if(session('success'))
         <div class="mx-6 mt-4 p-4 bg-green-50 border border-green-100 text-green-700 text-sm font-semibold rounded-xl">
             <i class="fas fa-check-circle mr-2"></i> {{ session('success') }}
@@ -88,8 +86,9 @@
                     <th class="px-6 py-4">Waktu Datang</th>
                     <th class="px-6 py-4">Waktu Pulang</th>
                     <th class="px-6 py-4">Lokasi</th>
+                    <th class="px-6 py-4 text-center">Bukti Selfie</th>
                     <th class="px-6 py-4">Kegiatan</th>
-                    <th class="px-6 py-4">Status</th>
+                    <th class="px-6 py-4 text-center">Status</th>
                     <th class="px-6 py-4 text-center">Lembur</th>
                 </tr>
             </thead>
@@ -108,10 +107,22 @@
                             <span class="text-indigo-600 font-bold"><i class="fas fa-seedling mr-1 text-[10px]"></i> SADANG</span>
                         @endif
                     </td>
+                    <td class="px-6 py-5 text-center">
+                        @if($row->image)
+                            <div class="relative inline-block">
+                                <img src="{{ asset('storage/' . $row->image) }}" 
+                                     onclick="openPhotoModal(this.src)"
+                                     alt="Selfie" 
+                                     class="w-10 h-10 rounded-lg object-cover border-2 border-white shadow-sm hover:border-[#065F46] transition-all cursor-zoom-in">
+                            </div>
+                        @else
+                            <span class="text-gray-300 text-[10px] italic">No Photo</span>
+                        @endif
+                    </td>
                     <td class="px-6 py-5 text-gray-500 italic max-w-[200px] truncate">
                         {{ $row->kegiatan ?? 'n/a' }}
                     </td>
-                   <td class="px-6 py-5">
+                    <td class="px-6 py-5 text-center">
                         @if($row->status == 'absen_pulang')
                             <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter">
                                 Hadir
@@ -132,7 +143,7 @@
                 </tr>
                 @empty
                 <tr id="emptyRow">
-                    <td colspan="7" class="px-6 py-10 text-center text-gray-400 italic">Tidak ada data absensi ditemukan.</td>
+                    <td colspan="8" class="px-6 py-10 text-center text-gray-400 italic">Tidak ada data absensi ditemukan.</td>
                 </tr>
                 @endforelse
             </tbody>
@@ -146,15 +157,47 @@
     </div>
 </div>
 
-{{-- Script Search Engine (Disesuaikan untuk Tabel Absensi) --}}
+{{-- MODAL FULL FOTO --}}
+<div id="photoModal" class="fixed inset-0 z-[999] hidden flex items-center justify-center bg-black/90 p-4 transition-opacity duration-300">
+    <button onclick="closePhotoModal()" class="absolute top-6 right-6 text-white text-3xl hover:text-gray-300 transition">
+        <i class="fas fa-times"></i>
+    </button>
+    <img id="modalImg" src="" class="max-w-full max-h-[90vh] rounded-2xl shadow-2xl border-4 border-white/10">
+</div>
+
 <script>
+    // FUNGSI MODAL FOTO
+    function openPhotoModal(src) {
+        const modal = document.getElementById('photoModal');
+        const modalImg = document.getElementById('modalImg');
+        modalImg.src = src;
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closePhotoModal() {
+        const modal = document.getElementById('photoModal');
+        modal.classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+
+    // Close modal on click outside image
+    document.getElementById('photoModal').addEventListener('click', function(e) {
+        if (e.target === this) closePhotoModal();
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === "Escape") closePhotoModal();
+    });
+
+    // FUNGSI SEARCH
     document.getElementById('absensiSearch').addEventListener('keyup', function() {
         let filter = this.value.toLowerCase();
         let rows = document.querySelectorAll('#absensiTable .row-item');
         let hasVisibleRows = false;
 
         rows.forEach(row => {
-            // Mengambil semua teks di dalam baris (Lokasi, Kegiatan, Status, dll)
             let text = row.innerText.toLowerCase();
             if (text.includes(filter)) {
                 row.style.display = "";
@@ -164,7 +207,6 @@
             }
         });
 
-        // Menampilkan baris "Data tidak ditemukan" jika hasil pencarian kosong
         let emptyMsg = document.getElementById('noResultsMsg');
         if (!hasVisibleRows && filter !== "") {
             if (!emptyMsg) {
@@ -172,7 +214,7 @@
                 let newRow = tbody.insertRow();
                 newRow.id = "noResultsMsg";
                 let cell = newRow.insertCell(0);
-                cell.colSpan = 7; // Diubah ke 7 sesuai jumlah kolom tabel absensi kamu
+                cell.colSpan = 8;
                 cell.className = "px-6 py-10 text-center text-gray-400 italic";
                 cell.innerHTML = "Data absensi tidak ditemukan...";
             }
@@ -182,3 +224,5 @@
     });
 </script>
 @endsection
+
+{{-- Script untuk konfirmasi gaji --}}

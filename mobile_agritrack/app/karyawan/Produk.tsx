@@ -8,7 +8,8 @@ import {
   TouchableOpacity, 
   SafeAreaView,
   StatusBar,
-  ActivityIndicator
+  ActivityIndicator,
+  Image // Tambahkan import Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNav from './components/BottomNav'; 
@@ -20,12 +21,13 @@ interface Produk {
   harga_satuan: string;
   stok: number;
   deskripsi: string;
+  gambar: string | null; // 1. Tambahkan field gambar
 }
 
 const ProdukPage = () => {
   const [produks, setProduks] = useState<Produk[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState<string>(''); // State untuk search
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     fetchData();
@@ -33,6 +35,7 @@ const ProdukPage = () => {
 
   const fetchData = async () => {
     try {
+      // Pastikan IP ini sesuai dengan lingkungan development Anda
       const response = await fetch('http://10.0.2.2:8000/api/Produk');
       const data = await response.json();
       setProduks(data);
@@ -43,7 +46,6 @@ const ProdukPage = () => {
     }
   };
 
-  // LOGIKA FILTERING (PENCARIAN)
   const filteredData = produks.filter(item => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
@@ -56,20 +58,15 @@ const ProdukPage = () => {
   });
 
   const handleNavigation = (screenName: string) => {
-    if (screenName === 'Home') {
-      router.push('/karyawan');
-    } else if (screenName === 'Absensi') {
-      router.push('/karyawan/Absensi');
-    } else if (screenName === 'Gaji') { 
-      router.push('/karyawan/gaji');
-    } else if (screenName === 'Profile') {
-      router.push('/karyawan/profile');
-    } else if (screenName === 'Produk') {
-      router.push('/karyawan/Produk');
-    }
+    const routes: { [key: string]: string } = {
+      'Home': '/karyawan',
+      'Absensi': '/karyawan/Absensi',
+      'Gaji': '/karyawan/gaji',
+      'Profile': '/karyawan/profile',
+      'Produk': '/karyawan/Produk'
+    };
+    if (routes[screenName]) router.push(routes[screenName] as any);
   };
-
-  
 
   const renderProductItem = ({ item }: { item: Produk }) => (
     <TouchableOpacity 
@@ -77,12 +74,25 @@ const ProdukPage = () => {
       onPress={() => router.push({ pathname: '/karyawan/edit_produk', params: { ...item } })}
     >
       <View style={styles.imagePlaceholder}>
-        <Ionicons name="leaf-outline" size={50} color="#117a65" opacity={0.3} />
+        {/* 2. Logika Menampilkan Gambar dari Server */}
+        {item.gambar ? (
+        <Image 
+  source={{ uri: `http://10.0.2.2:8000/storage/${item.gambar}` }} 
+  style={{ width: '100%', height: 150, borderRadius: 20 }}
+  onLoad={() => console.log("Gambar berhasil dimuat")}
+  onError={(e) => console.log("Gambar gagal dimuat: ", e.nativeEvent.error)}
+/>
+        ) : (
+          <Ionicons name="leaf-outline" size={50} color="#117a65" opacity={0.3} />
+        )}
       </View>
-      <Text style={styles.productName} numberOfLines={1}>{item.nama_produk}</Text>
-      <Text style={styles.productPrice}>Rp {Number(item.harga_satuan).toLocaleString('id-ID')}</Text>
-      <View style={styles.stokBadge}>
-        <Text style={styles.stokText}>Stok: {item.stok}</Text>
+      
+      <View style={styles.infoContainer}>
+        <Text style={styles.productName} numberOfLines={1}>{item.nama_produk}</Text>
+        <Text style={styles.productPrice}>Rp {Number(item.harga_satuan).toLocaleString('id-ID')}</Text>
+        <View style={styles.stokBadge}>
+          <Text style={styles.stokText}>Stok: {item.stok}</Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -91,7 +101,6 @@ const ProdukPage = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.menuTitle}>Menu</Text>
         <TouchableOpacity style={styles.bellIcon}>
@@ -103,7 +112,6 @@ const ProdukPage = () => {
         <Text style={styles.subTitle}>Our Products</Text>
         <Text style={styles.mainTitle}>Special in Kiwari Farm</Text>
 
-        {/* SEARCH BAR (LOGIKA SEPERTI ABSENSI) */}
         <View style={styles.searchContainer}>
           <Ionicons name="search-outline" size={20} color="#bdc3c7" style={{marginRight: 10}} />
           <TextInput 
@@ -111,7 +119,7 @@ const ProdukPage = () => {
             style={styles.searchInput}
             placeholderTextColor="#bdc3c7"
             value={searchQuery}
-            onChangeText={setSearchQuery} // Update state saat mengetik
+            onChangeText={setSearchQuery}
             autoCapitalize="none"
           />
           {searchQuery.length > 0 && (
@@ -121,17 +129,15 @@ const ProdukPage = () => {
           )}
         </View>
 
-        {/* Bagian Tombol Tambah di Sebelah Kanan */}
         <View style={styles.actionSection}>
           <TouchableOpacity 
             style={styles.addButton} 
-            onPress={() => router.push('/karyawan/input_produk')} // Navigasi ke halaman input produk
+            onPress={() => router.push('/karyawan/input_produk')}
           >
             <Ionicons name="add" size={30} color="black" />
           </TouchableOpacity>
         </View>
 
-        {/* List Produk Menggunakan filteredData */}
         {loading ? (
           <View style={styles.loader}>
             <ActivityIndicator size="large" color="#117a65" />
@@ -139,7 +145,7 @@ const ProdukPage = () => {
           </View>
         ) : (
           <FlatList
-            data={filteredData} // Menggunakan data hasil filter
+            data={filteredData}
             renderItem={renderProductItem}
             keyExtractor={(item) => item.id_produk.toString()}
             numColumns={2}
@@ -153,17 +159,13 @@ const ProdukPage = () => {
         )}
       </View>
 
-      {/* Navbar Bawah */}
       <BottomNav activeScreen="Produk" onNavPress={handleNavigation} />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
   header: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -171,29 +173,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
-  menuTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  bellIcon: {
-    position: 'absolute',
-    right: 20,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  subTitle: {
-    fontSize: 14,
-    color: '#bdc3c7',
-    marginTop: 10,
-  },
-  mainTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#117a65',
-    marginBottom: 15,
-  },
+  menuTitle: { fontSize: 18, fontWeight: 'bold' },
+  bellIcon: { position: 'absolute', right: 20 },
+  content: { flex: 1, paddingHorizontal: 20 },
+  subTitle: { fontSize: 14, color: '#bdc3c7', marginTop: 10 },
+  mainTitle: { fontSize: 24, fontWeight: 'bold', color: '#117a65', marginBottom: 15 },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -204,11 +188,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#eee',
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#2c3e50',
-  },
+  searchInput: { flex: 1, fontSize: 16, color: '#2c3e50' },
   actionSection: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -224,9 +204,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 2,
   },
-  row: {
-    justifyContent: 'space-between',
-  },
+  row: { justifyContent: 'space-between' },
   card: {
     backgroundColor: '#fff',
     width: '47%',
@@ -240,18 +218,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
+    overflow: 'hidden', // Penting agar gambar mengikuti border radius
   },
-  productName: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#2c3e50',
+  productImage: {
+    width: '100%',
+    height: '100%',
   },
-  productPrice: {
-    fontSize: 14,
-    color: '#117a65',
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
+  infoContainer: { paddingHorizontal: 5 },
+  productName: { fontSize: 14, fontWeight: 'bold', color: '#2c3e50' },
+  productPrice: { fontSize: 14, color: '#117a65', fontWeight: 'bold', marginTop: 4 },
   stokBadge: {
     marginTop: 5,
     backgroundColor: '#f1f1f1',
@@ -260,20 +235,9 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignSelf: 'flex-start',
   },
-  stokText: {
-    fontSize: 10,
-    color: '#7f8c8d',
-  },
-  loader: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: 50,
-    color: '#bdc3c7',
-  },
+  stokText: { fontSize: 10, color: '#7f8c8d' },
+  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyText: { textAlign: 'center', marginTop: 50, color: '#bdc3c7' },
 });
 
 export default ProdukPage;

@@ -52,7 +52,7 @@
         <table class="w-full text-left" id="gajiTable">
             <thead>
                 <tr class="bg-[#F1F5F9] text-[#64748B] text-[10px] uppercase font-extrabold tracking-widest">
-                    <th class="px-6 py-4 text-center">ID</th>
+                    <th class="px-6 py-4 text-center">No</th>
                     <th class="px-6 py-4">Tanggal</th>
                     <th class="px-6 py-4">Karyawan</th>
                     <th class="px-6 py-4">Keterangan</th>
@@ -65,7 +65,7 @@
             <tbody class="divide-y divide-gray-50 text-sm">
                 @forelse($gaji as $item)
                 <tr class="hover:bg-gray-50/50 transition row-item">
-                    <td class="px-6 py-5 text-center text-gray-400 font-medium">#{{ $item->id_gaji }}</td>
+                    <td class="px-6 py-5 text-center text-gray-400 font-medium">{{ $loop->iteration }}</td>
                     <td class="px-6 py-5 text-gray-600 font-semibold">{{ \Carbon\Carbon::parse($item->tanggal)->format('d M Y') }}</td>
                     <td class="px-6 py-5">
                         <div class="flex flex-col">
