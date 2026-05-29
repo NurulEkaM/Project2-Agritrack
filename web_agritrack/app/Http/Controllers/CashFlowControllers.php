@@ -128,4 +128,108 @@ public function getListLaporan()
         return response()->json(['error' => $e->getMessage()], 500);
     }
 }
+
+public function indexDashboard()
+{
+    // 1. Total Pemasukan (Gunakan saldo_debit sesuai tabel debit kamu)
+    $totalPemasukan = DB::table('debit')->sum('total_pemasukan');
+
+    // 2. Total Pengeluaran (Kredit yang disetuju)
+    $totalPengeluaran = DB::table('kredit')->where('status', 'setuju')->sum('saldo_kredit');
+
+    // 3. Pengeluaran Bulan Ini
+    $pengeluaranBulanIni = DB::table('kredit')
+        ->where('status', 'setuju')
+        ->whereMonth('tanggal', now()->month)
+        ->whereYear('tanggal', now()->year)
+        ->sum('saldo_kredit');
+
+    // 4. Jumlah Transaksi (Gabungan semua record yang ada di tabel debit dan kredit)
+    $jumlahTransaksi = DB::table('transaksi')->count();
+
+    // 5. Data Chart (6 Bulan Terakhir) - Perbaikan agar tidak duplikat bulan
+    $chartData = [];
+    for ($i = 5; $i >= 0; $i--) {
+        // Gunakan startOfMonth agar tidak terjadi bug 'double march'
+        $monthDate = now()->startOfMonth()->subMonths($i);
+        
+        $pemasukan = DB::table('debit')
+            ->whereMonth('tanggal', $monthDate->month)
+            ->whereYear('tanggal', $monthDate->year)
+            ->sum('total_pemasukan');
+
+        $pengeluaran = DB::table('kredit')
+            ->where('status', 'setuju')
+            ->whereMonth('tanggal', $monthDate->month)
+            ->whereYear('tanggal', $monthDate->year)
+            ->sum('saldo_kredit');
+
+        $chartData[] = [
+            'm' => $monthDate->format('M'),
+            'pemasukan' => $pemasukan,
+            'pengeluaran' => $pengeluaran,
+        ];
+    }
+
+    // 6. Recent Activity (Gabungan 5 data terbaru berdasarkan tanggal)
+    $recentActivity = DB::table('debit')
+        ->select('tanggal', 'nama', 'saldo_debit as nominal', DB::raw("'pemasukan' as tipe"))
+        ->unionAll(
+            DB::table('kredit')
+            ->select('tanggal', 'nama', 'saldo_kredit as nominal', DB::raw("'pengeluaran' as tipe"))
+        )
+        ->orderBy('tanggal', 'desc') // Menggunakan kolom tanggal untuk pengurutan
+        ->limit(5)
+        ->get();
+
+    return view('dashboard', compact(
+        'totalPemasukan', 
+        'totalPengeluaran', 
+        'pengeluaranBulanIni', 
+        'jumlahTransaksi', 
+        'chartData', 
+        'recentActivity'
+    ));
+}
+
+public function getMobileDashboardStats()
+{
+    try {
+        $totalPemasukan = DB::table('debit')->sum('total_pemasukan');
+        $jumlahKaryawan = DB::table('users')->count();
+        $laporanBaru = DB::table('kredit')->where('status', 'tunggu')->count();
+        
+        $chartData = [];
+        // Loop 6 bulan terakhir (sama dengan logika dashboard web)
+        for ($i = 5; $i >= 0; $i--) {
+            $monthDate = now()->startOfMonth()->subMonths($i);
+            
+            $pemasukan = DB::table('debit')
+                ->whereMonth('tanggal', $monthDate->month)
+                ->whereYear('tanggal', $monthDate->year)
+                ->sum('total_pemasukan');
+                
+            $pengeluaran = DB::table('kredit')
+                ->where('status', 'setuju')
+                ->whereMonth('tanggal', $monthDate->month)
+                ->whereYear('tanggal', $monthDate->year)
+                ->sum('saldo_kredit');
+            
+            $chartData[] = [
+                'day' => $monthDate->format('M'), // Jan, Feb, Mar, dst
+                'pemasukan' => (float)$pemasukan,
+                'pengeluaran' => (float)$pengeluaran
+            ];
+        }
+
+        return response()->json([
+            'total_pendapatan' => $totalPemasukan,
+            'pekerja_aktif' => $jumlahKaryawan,
+            'laporan_baru' => $laporanBaru,
+            'chart_data' => $chartData,
+        ], 200);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+}
 }

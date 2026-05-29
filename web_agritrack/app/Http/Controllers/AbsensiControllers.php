@@ -144,4 +144,31 @@ class AbsensiControllers extends Controller
         $absensi = Absensi::all();
         return view('absensi.page', compact('absensi'));
     }
+
+    public function getStatsMingguan(Request $request)
+{
+    $id_user = $request->query('id_user');
+    
+    // 1. Tentukan rentang minggu ini (Senin - Sabtu)
+    $startOfWeek = Carbon::now()->startOfWeek(); 
+    $endOfWeek = Carbon::now()->endOfWeek();
+
+    // 2. Hitung jumlah hari masuk (status: absen_pulang dianggap hadir penuh)
+    $jumlahHadir = DB::table('absensi')
+        ->where('id_user', $id_user)
+        ->whereBetween('tanggal_datang', [$startOfWeek, $endOfWeek])
+        ->whereIn('status', ['absen_pulang', 'lembur_datang'])
+        ->count();
+
+    // 3. Asumsi hari kerja (misal 6 hari kerja)
+    $hariKerja = 5; // Bisa disesuaikan dengan kebijakan perusahaan
+    $persentase = ($jumlahHadir / $hariKerja) * 100;
+
+    return response()->json([
+        'success' => true,
+        'hadir' => $jumlahHadir,
+        'total_hari' => $hariKerja,
+        'persentase' => round($persentase),
+    ]);
+}
 }

@@ -18,10 +18,23 @@ Route::get('/login', function () {
     return view('login'); // Pastikan nama filenya adalah login.blade.php
 })->name('login');
 Route::post('/login', [LoginControllers::class, 'loginWeb'])->name('login.post');
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware('auth');
+// Cari bagian ini:
+// Route::get('/dashboard', function () {
+//    return view('dashboard');
+// })->middleware('auth');
 
+// UBAH MENJADI:
+// Cari bagian ini:
+// Route::get('/dashboard', function () {
+//    return view('dashboard');
+// })->middleware('auth');
+
+Route::get('/dashboard', [CashFlowControllers::class, 'indexDashboard'])
+    ->middleware('auth')
+    ->name('dashboard');
+
+// Pastikan juga nama route cashflow sesuai dengan yang dipanggil di sidebar/link:
+Route::get('/cashflow/page', [CashFlowControllers::class, 'indexCashflow'])->name('admin.cashflow');
 
 Route::post('/logout', [LoginControllers::class, 'logout'])->name('logout');
 

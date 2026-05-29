@@ -40,6 +40,7 @@ Route::get('absensi', [AbsensiControllers::class, 'index']);
 Route::post('add-absensi', [AbsensiControllers::class, 'store']);
 // Tambahkan baris route PUT ini di bagian bawah file routes/api.php kamu
 Route::put('absensi-pulang/{id}', [AbsensiControllers::class, 'updatePulang']);
+Route::get('/absensi/stats', [AbsensiControllers::class, 'getStatsMingguan']);
 
 Route::get('gaji/{id_user}', [GajiControllers::class, 'index']);
 // Route untuk mengambil rincian detail gaji berdasarkan id_gaji
@@ -61,3 +62,4 @@ Route::get('/owner/laporan-list', [CashFlowControllers::class, 'getListLaporan']
 // Pastikan route pdf juga ada (sudah ada di code kamu, tapi pastikan posisinya benar)
 Route::get('/mobile/cashflow/pdf', [CashFlowControllers::class, 'downloadPDF']);
 
+Route::get('/owner/dashboard-stats', [CashFlowControllers::class, 'getMobileDashboardStats']);
