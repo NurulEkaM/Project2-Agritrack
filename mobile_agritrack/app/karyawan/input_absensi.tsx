@@ -22,7 +22,7 @@ export default function FormAbsensiScreen() {
   const [currentDateTimeStr, setCurrentDateTimeStr] = useState(''); // Untuk Tampilan User
   const [waktuKunciBackend, setWaktuKunciBackend] = useState(''); // Untuk Database
 
-  const [jenisAbsen, setJenisAbsen] = useState<'absen_datang' | 'tidak_hadir' | 'lembur_datang'>('absen_datang');
+  const [jenisAbsen, setJenisAbsen] = useState<'absen_datang' | 'tidak_hadir'>('absen_datang');
   const [lokasi, setLokasi] = useState<'kebun_lanud' | 'kebun_sadang'>('kebun_lanud');
 
   useEffect(() => {
@@ -164,7 +164,7 @@ export default function FormAbsensiScreen() {
           <View style={styles.pickerWrapper}>
             <Picker selectedValue={jenisAbsen} onValueChange={(item) => setJenisAbsen(item)}>
               <Picker.Item label="Absen Masuk" value="absen_datang" />
-              <Picker.Item label="Lembur Datang" value="lembur_datang" />
+              {/* <Picker.Item label="Lembur Datang" value="lembur_datang" /> */}
               <Picker.Item label="Tidak Hadir" value="tidak_hadir" />
             </Picker>
           </View>

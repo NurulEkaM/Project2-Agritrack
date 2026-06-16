@@ -1,29 +1,31 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-export const unstable_settings = {
-  // Mengarahkan jangkar default rute awal ke file login
-  anchor: 'login',
-};
+// Langsung sembunyikan splash agar tidak muncul kotak penampung dari Expo Router
+SplashScreen.hideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
-  return (
+return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        {/* Mengunci halaman 'login' di urutan paling atas sebagai halaman utama */}
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="owner/index" options={{ headerShown: false }} />
-        <Stack.Screen name="karyawan/index" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+      {/* contentStyle di bawah ini akan memaksa latar belakang putih di seluruh transisi halaman */}
+      <Stack screenOptions={{ 
+          headerShown: false,
+          contentStyle: { backgroundColor: '#ffffff' } 
+      }}>
+        <Stack.Screen name="login" />
+        <Stack.Screen name="owner/index" />
+        <Stack.Screen name="karyawan/index" />
+        <Stack.Screen name="(tabs)" />
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
     </ThemeProvider>
   );
 }
