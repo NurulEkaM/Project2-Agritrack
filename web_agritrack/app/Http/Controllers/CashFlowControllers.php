@@ -55,38 +55,52 @@ class CashFlowControllers extends Controller
     // }
 
     private function getCashflowData()
-    {
-        $debitQuery = DB::table('debit')
-            ->select(
-                'id_debit as id', 
-                'tanggal', 
-                'nama', 
-                DB::raw("'PEMASUKAN' as kategori"), 
-                'saldo_debit as nominal', 
-                DB::raw("'setuju' as status"),
-                DB::raw("'green' as color")
-            );
+{
+    // 1. Query untuk data Pemasukan (Debit)
+    $debitQuery = DB::table('debit')
+        ->select(
+            'id_debit as id', 
+            'tanggal', 
+            'nama', 
+            DB::raw("'PEMASUKAN' as kategori"), 
+            DB::raw("null as sifat"), // Ditambahkan null agar jumlah kolom union seimbang
+            'saldo_debit as nominal', 
+            DB::raw("'setuju' as status"),
+            DB::raw("'green' as color")
+        );
 
-        $cashflow = DB::table('kredit')
-            ->select(
-                'id_kredit as id', 
-                'tanggal', 
-                'nama', 
-                DB::raw("'PENGELUARAN' as kategori"), 
-                'saldo_kredit as nominal', 
-                'status', 
-                DB::raw("'red' as color")
-            )
-            ->where('status', 'setuju')
-            ->unionAll($debitQuery)
-            ->orderBy('tanggal', 'desc')
-            ->get();
+    // 2. Query untuk data Pengeluaran (Kredit)
+    $cashflow = DB::table('kredit')
+        ->select(
+            'id_kredit as id', 
+            'tanggal', 
+            'nama', 
+            DB::raw("'PENGELUARAN' as kategori"), // Set kategori utama sebagai PENGELUARAN
+            'jenis_pengeluaran as sifat',       // Mengambil nilai 'tetap' / 'tidak tetap' dimasukkan ke alias 'sifat'
+            'saldo_kredit as nominal', 
+            'status', 
+            DB::raw("'red' as color")
+        )
+        ->where('status', 'setuju')
+        ->unionAll($debitQuery)
+        ->orderBy('tanggal', 'desc')
+        ->get();
 
-        $totalPengeluaran = DB::table('kredit')->where('status', 'setuju')->sum('saldo_kredit');
-        $totalPemasukan = DB::table('debit')->sum('saldo_debit');
+    // Total Pengeluaran hanya dari yang disetujui dan pada bulan ini
+    $totalPengeluaran = DB::table('kredit')
+        ->where('status', 'setuju')
+        ->whereMonth('tanggal', now()->month)
+        ->whereYear('tanggal', now()->year)
+        ->sum('saldo_kredit');
 
-        return compact('cashflow', 'totalPengeluaran', 'totalPemasukan');
-    }
+    // Total Pemasukan pada bulan ini
+    $totalPemasukan = DB::table('debit')
+        ->whereMonth('tanggal', now()->month)
+        ->whereYear('tanggal', now()->year)
+        ->sum('saldo_debit');
+
+    return compact('cashflow', 'totalPengeluaran', 'totalPemasukan');
+}
 
     public function indexCashflow()
     {
@@ -131,32 +145,43 @@ public function getListLaporan()
 
 public function indexDashboard()
 {
-    // 1. Total Pemasukan (Gunakan saldo_debit sesuai tabel debit kamu)
-    $totalPemasukan = DB::table('debit')->sum('total_pemasukan');
+    // Jangan lupa import DB di bagian atas controller jika belum: 
+    // use Illuminate\Support\Facades\DB;
 
-    // 2. Total Pengeluaran (Kredit yang disetuju)
-    $totalPengeluaran = DB::table('kredit')->where('status', 'setuju')->sum('saldo_kredit');
+    // 1. Total Pemasukan bulan ini
+    $totalPemasukan = DB::table('debit')
+        ->whereMonth('tanggal', now()->month)
+        ->whereYear('tanggal', now()->year)
+        ->sum('saldo_debit');
 
-    // 3. Pengeluaran Bulan Ini
-    $pengeluaranBulanIni = DB::table('kredit')
+    // 2. Total Pengeluaran bulan ini (Kredit yang disetuju)
+    $totalPengeluaran = DB::table('kredit')
         ->where('status', 'setuju')
         ->whereMonth('tanggal', now()->month)
         ->whereYear('tanggal', now()->year)
         ->sum('saldo_kredit');
 
-    // 4. Jumlah Transaksi (Gabungan semua record yang ada di tabel debit dan kredit)
-    $jumlahTransaksi = DB::table('transaksi')->count();
+    // 3. Absensi hari ini
+    $absensiHariIni = DB::table('absensi')
+        ->whereDate('tanggal_datang', now()->toDateString())
+        ->count();
 
-    // 5. Data Chart (6 Bulan Terakhir) - Perbaikan agar tidak duplikat bulan
+    // 4. Jumlah Transaksi bulan ini
+    $jumlahTransaksi = DB::table('transaksi')
+        ->whereMonth('created_at', now()->month)
+        ->whereYear('created_at', now()->year)
+        ->count();
+
+    // 5. Data Chart: 6 Bulan Terakhir Berurutan Maju (Jan -> Feb -> ... -> Bulan Ini)
     $chartData = [];
     for ($i = 5; $i >= 0; $i--) {
-        // Gunakan startOfMonth agar tidak terjadi bug 'double march'
+        // Mengurangi bulan dari bulan sekarang secara dinamis
         $monthDate = now()->startOfMonth()->subMonths($i);
         
         $pemasukan = DB::table('debit')
             ->whereMonth('tanggal', $monthDate->month)
             ->whereYear('tanggal', $monthDate->year)
-            ->sum('total_pemasukan');
+            ->sum('saldo_debit');
 
         $pengeluaran = DB::table('kredit')
             ->where('status', 'setuju')
@@ -165,27 +190,27 @@ public function indexDashboard()
             ->sum('saldo_kredit');
 
         $chartData[] = [
-            'm' => $monthDate->format('M'),
-            'pemasukan' => $pemasukan,
-            'pengeluaran' => $pengeluaran,
+            'm' => $monthDate->translatedFormat('F'), // Menggunakan nama bulan lengkap (e.g., Juni)
+            'pemasukan' => (int) $pemasukan,
+            'pengeluaran' => (int) $pengeluaran,
         ];
     }
 
-    // 6. Recent Activity (Gabungan 5 data terbaru berdasarkan tanggal)
-    $recentActivity = DB::table('debit')
-        ->select('tanggal', 'nama', 'saldo_debit as nominal', DB::raw("'pemasukan' as tipe"))
-        ->unionAll(
-            DB::table('kredit')
-            ->select('tanggal', 'nama', 'saldo_kredit as nominal', DB::raw("'pengeluaran' as tipe"))
-        )
-        ->orderBy('tanggal', 'desc') // Menggunakan kolom tanggal untuk pengurutan
+    // 6. Recent Activity (Diperbaiki menggunakan DB::table() dari subquery agar tidak error SQL union)
+    $pemasukanQuery = DB::table('debit')
+        ->select('tanggal', 'nama', 'saldo_debit as nominal', DB::raw("'pemasukan' as tipe"));
+
+    $recentActivity = DB::table('kredit')
+        ->select('tanggal', 'nama', 'saldo_kredit as nominal', DB::raw("'pengeluaran' as tipe"))
+        ->unionAll($pemasukanQuery)
+        ->orderBy('tanggal', 'desc')
         ->limit(5)
         ->get();
 
     return view('dashboard', compact(
         'totalPemasukan', 
         'totalPengeluaran', 
-        'pengeluaranBulanIni', 
+        'absensiHariIni', 
         'jumlahTransaksi', 
         'chartData', 
         'recentActivity'
@@ -195,7 +220,7 @@ public function indexDashboard()
 public function getMobileDashboardStats()
 {
     try {
-        $totalPemasukan = DB::table('debit')->sum('total_pemasukan');
+        $totalPemasukan = DB::table('debit')->sum('saldo_debit');
         $jumlahKaryawan = DB::table('users')->count();
         $laporanBaru = DB::table('kredit')->where('status', 'tunggu')->count();
         
@@ -207,8 +232,8 @@ public function getMobileDashboardStats()
             $pemasukan = DB::table('debit')
                 ->whereMonth('tanggal', $monthDate->month)
                 ->whereYear('tanggal', $monthDate->year)
-                ->sum('total_pemasukan');
-                
+                ->sum('saldo_debit');
+
             $pengeluaran = DB::table('kredit')
                 ->where('status', 'setuju')
                 ->whereMonth('tanggal', $monthDate->month)

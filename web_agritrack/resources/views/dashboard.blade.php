@@ -12,11 +12,14 @@
             <div class="p-3 bg-red-50 rounded-xl text-red-500">
                 <i class="fas fa-chart-line transform rotate-180"></i>
             </div>
-            <span class="text-[10px] font-bold text-gray-400">Approved</span>
+            <span class="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                {{ now()->locale('id')->translatedFormat('F Y') }}
+            </span>
         </div>
         <div>
             <p class="text-[10px] uppercase text-gray-400 font-extrabold tracking-wider mb-1">Total Pengeluaran</p>
             <p class="text-xl font-extrabold text-gray-800 tracking-tight">Rp {{ number_format($totalPengeluaran, 0, ',', '.') }}</p>
+            <p class="text-[9px] text-gray-400 mt-1">*Data pengeluaran disetujui bulan ini</p>
         </div>
     </div>
 
@@ -25,11 +28,14 @@
             <div class="p-3 bg-green-50 rounded-xl text-green-600">
                 <i class="fas fa-chart-line"></i>
             </div>
-            <span class="text-[10px] font-bold text-gray-400">Total</span>
+            <span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                {{ now()->locale('id')->translatedFormat('F Y') }}
+            </span>
         </div>
         <div>
             <p class="text-[10px] uppercase text-gray-400 font-extrabold tracking-wider mb-1">Total Pemasukan</p>
             <p class="text-xl font-extrabold text-gray-800 tracking-tight">Rp {{ number_format($totalPemasukan, 0, ',', '.') }}</p>
+            <p class="text-[9px] text-gray-400 mt-1">*Data total pemasukan kas bulan ini</p>
         </div>
     </div>
 
@@ -38,11 +44,14 @@
             <div class="p-3 bg-orange-50 rounded-xl text-orange-400">
                 <i class="fas fa-receipt"></i>
             </div>
-            <span class="text-[10px] font-bold text-gray-400">Records</span>
+            <span class="text-[10px] font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                {{ now()->locale('id')->translatedFormat('F Y') }}
+            </span>
         </div>
         <div>
             <p class="text-[10px] uppercase text-gray-400 font-extrabold tracking-wider mb-1">Jumlah Transaksi</p>
             <p class="text-xl font-extrabold text-gray-800 tracking-tight">{{ number_format($jumlahTransaksi, 0, ',', '.') }}</p>
+            <p class="text-[9px] text-gray-400 mt-1">*Total rekam transaksi bulan ini</p>
         </div>
     </div>
 
@@ -51,11 +60,14 @@
             <div class="p-3 bg-blue-50 rounded-xl text-blue-500">
                 <i class="fas fa-calendar-check"></i>
             </div>
-            <span class="text-[10px] font-bold text-gray-400">{{ now()->format('M Y') }}</span>
+            <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md tracking-wide">
+                {{ now()->locale('id')->translatedFormat('l, d M Y') }}
+            </span>
         </div>
         <div>
-            <p class="text-[10px] uppercase text-gray-400 font-extrabold tracking-wider mb-1">Pengeluaran Bulan Ini</p>
-            <p class="text-xl font-extrabold text-gray-800 tracking-tight">Rp {{ number_format($pengeluaranBulanIni, 0, ',', '.') }}</p>
+            <p class="text-[10px] uppercase text-gray-400 font-extrabold tracking-wider mb-1">Absensi Hari Ini</p>
+            <p class="text-xl font-extrabold text-gray-800 tracking-tight">{{ $absensiHariIni }} <span class="text-xs font-normal text-gray-400">Karyawan</span></p>
+            <p class="text-[9px] text-gray-400 mt-1">*Jumlah kehadiran masuk hari ini</p>
         </div>
     </div>
 </div>
@@ -117,7 +129,6 @@
     document.addEventListener("DOMContentLoaded", function() {
         const ctx = document.getElementById('cashflowLineChart').getContext('2d');
         
-        // Data dari Controller
         const chartData = @json($chartData);
         const labels = chartData.map(item => item.m.toUpperCase());
         const dataPemasukan = chartData.map(item => item.pemasukan);

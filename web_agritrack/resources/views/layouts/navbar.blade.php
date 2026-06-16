@@ -1,15 +1,18 @@
 <header class="bg-white border-b border-gray-50 px-8 py-4 flex justify-between items-center">
-    <div class="flex items-center space-x-4">
-        {{-- <i class="fas fa-search text-gray-400"></i> --}}
-        <i class="fas fa-bell text-gray-400"></i>
+    <div class="flex flex-col">
+        <h1 class="text-lg font-bold text-gray-800">
+            Selamat Datang, <span class="text-[#065F46]">{{ Auth::user()->nama }}</span>!
+        </h1>
+        <p class="text-xs text-gray-400 capitalize">
+            Role: {{ Auth::user()->role }}
+        </p>
     </div>
     
     <div class="flex items-center space-x-3">
-        <div class="text-right">
-            <p class="text-sm font-bold text-gray-800">Office Admin</p>
-            <p class="text-[10px] text-gray-400 uppercase tracking-tighter">Administrator</p>
+        <div class="w-10 h-10 bg-gray-100 rounded-full border-2 border-[#065F46] flex items-center justify-center">
+            <span class="text-sm font-bold text-[#065F46] uppercase">
+                {{ substr(Auth::user()->nama, 0, 2) }}
+            </span>
         </div>
-        <div class="w-10 h-10 bg-gray-200 rounded-full border-2 border-[#065F46]"></div>
     </div>
-    
 </header>

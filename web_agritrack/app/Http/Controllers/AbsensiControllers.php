@@ -11,14 +11,14 @@ use Illuminate\Support\Facades\Storage;
 
 class AbsensiControllers extends Controller
 {
-    // 1. INPUT ABSENSI DATANG
+    // 1. INPUT ABSENSI DATANG (TAHAP 1)
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'id_user'        => 'required|integer',
             'status'         => 'required|in:absen_datang,lembur_datang,tidak_hadir',
-            'lokasi'         => 'required|in:kebun_lanud,kebun_sadang',
-            'tanggal_datang' => 'required|date', // Waktu yang dikunci dari mobile
+            'lokasi'         => 'required|in:pulo,sindang',
+            'tanggal_datang' => 'required|date', 
             'image'          => 'nullable|string', 
         ]);
 
@@ -29,12 +29,10 @@ class AbsensiControllers extends Controller
         try {
             date_default_timezone_set('Asia/Jakarta');
             
-            // Ambil waktu yang dikirim dari Mobile
             $waktuLocked = $request->tanggal_datang; 
-            // Ambil tanggal saja untuk pengecekan double absen
             $hariIni = Carbon::parse($waktuLocked)->format('Y-m-d');
 
-            // 1. Cek Double Absen (Berdasarkan tanggal dari waktu yang dikunci)
+            // Cek Double Absen
             $sudahAbsen = DB::table('absensi')
                 ->where('id_user', $request->id_user)
                 ->whereDate('tanggal_datang', $hariIni)
@@ -47,7 +45,7 @@ class AbsensiControllers extends Controller
                 ], 422); 
             }
 
-            // 2. Proses Foto
+            // Proses Foto Selfie
             $fileName = null;
             if ($request->filled('image')) {
                 $image = $request->image;
@@ -57,10 +55,10 @@ class AbsensiControllers extends Controller
                 Storage::disk('public')->put('absensi/' . $fileName, base64_decode($image));
             }
 
-            // 3. Simpan ke Database
-            DB::table('absensi')->insert([
+            // Simpan data & tangkap ID item barunya
+            $insertedId = DB::table('absensi')->insertGetId([
                 'id_user'        => $request->id_user,
-                'tanggal_datang' => $waktuLocked, // Menggunakan waktu saat user buka page
+                'tanggal_datang' => $waktuLocked,
                 'status'         => $request->status,
                 'kegiatan'       => $request->kegiatan ?? 'Absen Mobile',
                 'lokasi'         => $request->lokasi,
@@ -68,69 +66,66 @@ class AbsensiControllers extends Controller
                 'total_lembur'   => 0
             ]);
 
-            return response()->json(['success' => true, 'message' => 'Absensi Berhasil!'], 200);
+            return response()->json([
+                'success' => true, 
+                'message' => 'Absensi Berhasil!',
+                'id_absensi' => $insertedId
+            ], 200);
 
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Eror: ' . $e->getMessage()], 500);
         }
     }
 
-    // 2. UPDATE ABSENSI PULANG + LEMBUR OTOMATIS
+    // 2. UPDATE ABSENSI PULANG + LOGBOOK & STATUS LEMBUR/SELESAI (TAHAP 2, 3, & 4)
+    // 2. UPDATE ABSENSI PULANG + LOGBOOK & STATUS LEMBUR/SELESAI (TAHAP 2, 3, & 4)
     public function updatePulang(Request $request, $id)
-{
-    // 1. Tambahkan tanggal_pulang ke validasi
-    $validator = Validator::make($request->all(), [
-        'kegiatan'       => 'required|string',
-        'tanggal_pulang' => 'required|date_format:Y-m-d H:i:s' // Menerima waktu dari mobile
-    ]);
+    {
+        // Ubah tanggal_pulang menjadi nullable agar bisa menyimpan NULL saat mulai lembur
+        $validator = Validator::make($request->all(), [
+            'kegiatan'       => 'required|string',
+            'tanggal_pulang' => 'nullable|date_format:Y-m-d H:i:s', 
+            'status'         => 'required|in:absen_pulang,lembur,selesai', 
+            'total_lembur'   => 'required|integer|min:0',
+            'uang_lembur'    => 'nullable|numeric|min:0' 
+        ]);
 
-    if ($validator->fails()) {
-        return response()->json(['success' => false, 'message' => 'Validasi gagal.'], 422);
-    }
-
-    try {
-        date_default_timezone_set('Asia/Jakarta');
-        
-        // Gunakan waktu yang dikirim dari Mobile
-        $waktuPulang = new \DateTime($request->tanggal_pulang);
-        $waktuPulangStr = $waktuPulang->format('Y-m-d H:i:s');
-
-        $absensi = DB::table('absensi')->where('id_absensi', $id)->first();
-        if (!$absensi) {
-            return response()->json(['success' => false, 'message' => 'Data tidak ditemukan.'], 404);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'Validasi data gagal.', 
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        // --- LOGIKA HITUNG LEMBUR BERDASARKAN WAKTU KUNCI ---
-        $totalLembur = 0;
-        $batasLembur = new \DateTime($waktuPulang->format('Y-m-d') . ' 17:00:00');
+        try {
+            date_default_timezone_set('Asia/Jakarta');
+            
+            $absensi = DB::table('absensi')->where('id_absensi', $id)->first();
+            if (!$absensi) {
+                return response()->json(['success' => false, 'message' => 'Data absensi tidak ditemukan.'], 404);
+            }
 
-        if ($waktuPulang > $batasLembur) {
-            $diff = $waktuPulang->diff($batasLembur);
-            $totalLembur = $diff->h + ($diff->days * 24);
+            // Update database dengan status akhir & logbook dari aplikasi mobile
+            DB::table('absensi')
+                ->where('id_absensi', $id)
+                ->update([
+                    'status'         => $request->status,         
+                    'kegiatan'       => $request->kegiatan,       
+                    'tanggal_pulang' => $request->tanggal_pulang, // Akan terisi null atau format datetime asli
+                    'total_lembur'   => $request->total_lembur,   
+                ]);
+
+            return response()->json([
+                'success' => true, 
+                'message' => 'Berhasil memperbarui rangkaian tahapan status absensi pulang!',
+                'status_terkunci' => $request->status
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()], 500);
         }
-
-        // 3. Update database
-        DB::table('absensi')
-            ->where('id_absensi', $id)
-            ->update([
-                'status'         => 'absen_pulang',
-                'kegiatan'       => $request->kegiatan,
-                'tanggal_pulang' => $waktuPulangStr, // Pakai waktu dari Mobile
-                'total_lembur'   => $totalLembur,
-            ]);
-
-        return response()->json([
-            'success' => true, 
-            'message' => 'Berhasil melakukan absen pulang kerja!',
-            'waktu_pulang' => $waktuPulangStr,
-            'lembur' => $totalLembur
-        ], 200);
-
-    } catch (\Exception $e) {
-        return response()->json(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()], 500);
     }
-}
-
     // 3. GET RIWAYAT
     public function index(Request $request)
     {
@@ -141,34 +136,65 @@ class AbsensiControllers extends Controller
 
     public function indexWeb()
     {
-        $absensi = Absensi::all();
+        $absensi = Absensi::with('user')->orderBy('id_absensi', 'desc')->get();
         return view('absensi.page', compact('absensi'));
     }
 
     public function getStatsMingguan(Request $request)
-{
-    $id_user = $request->query('id_user');
-    
-    // 1. Tentukan rentang minggu ini (Senin - Sabtu)
-    $startOfWeek = Carbon::now()->startOfWeek(); 
-    $endOfWeek = Carbon::now()->endOfWeek();
+    {
+        $id_user = $request->query('id_user');
+        
+        $startOfWeek = Carbon::now()->startOfWeek(); 
+        $endOfWeek = Carbon::now()->endOfWeek();
 
-    // 2. Hitung jumlah hari masuk (status: absen_pulang dianggap hadir penuh)
-    $jumlahHadir = DB::table('absensi')
-        ->where('id_user', $id_user)
-        ->whereBetween('tanggal_datang', [$startOfWeek, $endOfWeek])
-        ->whereIn('status', ['absen_pulang', 'lembur_datang'])
-        ->count();
+        $jumlahHadir = DB::table('absensi')
+            ->where('id_user', $id_user)
+            ->whereBetween('tanggal_datang', [$startOfWeek, $endOfWeek])
+            ->whereIn('status', ['absen_pulang', 'lembur', 'selesai', 'lembur_datang'])
+            ->count();
 
-    // 3. Asumsi hari kerja (misal 6 hari kerja)
-    $hariKerja = 5; // Bisa disesuaikan dengan kebijakan perusahaan
-    $persentase = ($jumlahHadir / $hariKerja) * 100;
+        $hariKerja = 5; 
+        $persentase = ($jumlahHadir / $hariKerja) * 100;
 
-    return response()->json([
-        'success' => true,
-        'hadir' => $jumlahHadir,
-        'total_hari' => $hariKerja,
-        'persentase' => round($persentase),
-    ]);
-}
+        return response()->json([
+            'success' => true,
+            'hadir' => $jumlahHadir,
+            'total_hari' => $hariKerja,
+            'persentase' => round($persentase),
+        ]);
+    }
+
+    // 4. UPDATE ABSENSI VIA WEB (FITUR EDIT ADMIN)
+    public function updateWeb(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'tanggal_datang' => 'required|date',
+            'tanggal_pulang' => 'nullable|date',
+            'lokasi'         => 'required|in:pulo,sindang',
+            'status'         => 'required|in:absen_datang,absen_pulang,lembur,selesai,lembur_datang,tidak_hadir',
+            'kegiatan'       => 'nullable|string',
+            'total_lembur'   => 'required|integer|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->withInput();
+        }
+
+        try {
+            DB::table('absensi')
+                ->where('id_absensi', $id) 
+                ->update([
+                    'tanggal_datang' => $request->tanggal_datang,
+                    'tanggal_pulang' => $request->tanggal_pulang,
+                    'lokasi'         => $request->lokasi,
+                    'status'         => $request->status,
+                    'kegiatan'       => $request->kegiatan ?? 'Diubah oleh Admin',
+                    'total_lembur'   => $request->total_lembur,
+                ]);
+
+            return redirect()->back()->with('success', 'Data absensi berhasil diperbarui!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Gagal memperbarui data: ' . $e->getMessage());
+        }
+    }
 }

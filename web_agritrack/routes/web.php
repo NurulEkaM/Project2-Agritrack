@@ -8,67 +8,56 @@ use App\Http\Controllers\DebitControllers;
 use App\Http\Controllers\CashFlowControllers;
 use App\Http\Controllers\GajiControllers;   
 use App\Http\Controllers\TransaksiControllers;
+use App\Http\Controllers\ProdukControllers;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+// ==================== ROUTE PUBLIC (Bisa diakses tanpa login) ====================
+Route::get('/', [ProdukControllers::class, 'indexWeb']);
 
-// 1. Route untuk MENAMPILKAN halaman login (Ini yang tadinya error)
 Route::get('/login', function () {
-    return view('login'); // Pastikan nama filenya adalah login.blade.php
+    return view('login');
 })->name('login');
+
 Route::post('/login', [LoginControllers::class, 'loginWeb'])->name('login.post');
-// Cari bagian ini:
-// Route::get('/dashboard', function () {
-//    return view('dashboard');
-// })->middleware('auth');
 
-// UBAH MENJADI:
-// Cari bagian ini:
-// Route::get('/dashboard', function () {
-//    return view('dashboard');
-// })->middleware('auth');
 
-Route::get('/dashboard', [CashFlowControllers::class, 'indexDashboard'])
-    ->middleware('auth')
-    ->name('dashboard');
+// ==================== ROUTE PROTECTED (Wajib Login) ====================
+Route::middleware(['auth'])->group(function () {
+    
+    Route::post('/logout', [LoginControllers::class, 'logout'])->name('logout');
+    
+    Route::get('/dashboard', [CashFlowControllers::class, 'indexDashboard'])->name('dashboard');
 
-// Pastikan juga nama route cashflow sesuai dengan yang dipanggil di sidebar/link:
-Route::get('/cashflow/page', [CashFlowControllers::class, 'indexCashflow'])->name('admin.cashflow');
+    // Cashflow & PDF
+    Route::get('/cashflow/page', [CashFlowControllers::class, 'indexCashflow'])->name('cashflow.page');
+    Route::get('/cashflow/pdf', [CashFlowControllers::class, 'downloadPDF'])->name('cashflow.pdf');
 
-Route::post('/logout', [LoginControllers::class, 'logout'])->name('logout');
+    // Kredit
+    Route::get('/cashflow/kredit', [KreditControllers::class, 'indexWeb'])->name('admin.kredit');
+    Route::get('/kredit/create', [KreditControllers::class, 'create'])->name('kredit.create');
+    Route::post('/kredit/store', [KreditControllers::class, 'store'])->name('kredit.store');
+    Route::get('/cashflow/kredit/{id}/edit', [KreditControllers::class, 'edit'])->name('admin.kredit.edit');
+    Route::put('/cashflow/kredit/{id}', [KreditControllers::class, 'updateWeb'])->name('admin.kredit.update');
+    Route::delete('/admin/kredit/{id}', [KreditControllers::class, 'destroy'])->name('admin.kredit.destroy');
 
-Route::get('/cashflow/page', [CashFlowControllers::class, 'indexCashflow'])->name('cashflow.page');
-Route::get('/cashflow/pdf', [CashFlowControllers::class, 'downloadPDF'])->name('cashflow.pdf');
+    // Debit
+    Route::get('/cashflow/debit', [DebitControllers::class, 'indexWeb'])->name('admin.debit');
+    Route::get('/debit/create', [DebitControllers::class, 'create'])->name('debit.create');
+    Route::post('/debit/store', [DebitControllers::class, 'store'])->name('debit.store');
+    Route::delete('/admin/debit/{id}', [DebitControllers::class, 'destroy'])->name('admin.debit.destroy');
+    Route::put('/admin/debit/update/{id}', [DebitControllers::class, 'updateWeb'])->name('admin.debit.update');
 
-Route::get('/cashflow/kredit', [KreditControllers::class, 'indexWeb'])->name('admin.kredit');
-Route::get('/cashflow/kredit/{id}/edit', [KreditControllers::class, 'edit'])->name('admin.kredit.edit');
-Route::put('/cashflow/kredit/{id}', [KreditControllers::class, 'updateWeb'])->name('admin.kredit.update');
+    // Absensi
+    Route::get('/absensi/page', [AbsensiControllers::class, 'indexWeb'])->name('absensi.page');
+    Route::get('/absensi/{id}/edit', [AbsensiControllers::class, 'edit'])->name('absensi.edit');
+    Route::put('/absensi/{id}', [AbsensiControllers::class, 'update'])->name('absensi.update');
+    Route::put('/absensi/{id}', [AbsensiControllers::class, 'updateWeb'])->name('absensi.updateWeb');
 
-Route::get('/kredit/create', [KreditControllers::class, 'create'])->name('kredit.create');
-Route::post('/kredit/store', [KreditControllers::class, 'store'])->name('kredit.store');
-// Tambahkan baris ini
-Route::delete('/admin/kredit/{id}', [KreditControllers::class, 'destroy'])->name('admin.kredit.destroy');
-Route::put('/admin/kredit/update/{id}', [KreditControllers::class, 'updateWeb'])->name('admin.kredit.update');
+    // Gaji
+    Route::get('/gaji/page', [GajiControllers::class, 'indexWeb'])->name('gaji.page');
+    Route::post('/gaji/generate', [GajiControllers::class, 'generateGaji'])->name('gaji.generate');
+    Route::put('/gaji/konfirmasi/{id}', [GajiControllers::class, 'konfirmasiAdmin'])->name('gaji.konfirmasi');
 
-// --- TAMBAHKAN ROUTE BARU INI DI BAWAH ---
-// ==================== ROUTE ABSENSI WEB ====================
-
-Route::get('/absensi/page', [AbsensiControllers::class, 'indexWeb'])->name('absensi.page');
-Route::get('/absensi/{id}/edit', [AbsensiControllers::class, 'edit'])->name('absensi.edit');
-Route::put('/absensi/{id}', [AbsensiControllers::class, 'update'])->name('absensi.update');
-
-Route::get('/cashflow/debit', [DebitControllers::class, 'indexWeb'])->name('admin.debit');
-Route::get('/debit/create', [DebitControllers::class, 'create'])->name('debit.create');
-Route::post('/debit/store', [DebitControllers::class, 'store'])->name('debit.store');
-// Tambahkan baris ini
-Route::delete('/admin/debit/{id}', [DebitControllers::class, 'destroy'])->name('admin.debit.destroy');
-Route::put('/admin/debit/update/{id}', [DebitControllers::class, 'updateWeb'])->name('admin.debit.update');
-
-Route::get('/gaji/page', [GajiControllers::class, 'indexWeb'])->name('gaji.page');
-Route::post('/gaji/generate', [GajiControllers::class, 'generateGaji'])->name('gaji.generate');
-// Route untuk mengubah status menjadi tunggu_konfirmasi
-Route::put('/gaji/konfirmasi/{id}', [GajiControllers::class, 'konfirmasiAdmin'])->name('gaji.konfirmasi');
-
-Route::get('transaksi/page', [TransaksiControllers::class, 'index'])->name('transaksi.page');
-Route::post('transaksi/page', [TransaksiControllers::class, 'store'])->name('transaksi.store');
+    // Transaksi
+    Route::get('transaksi/page', [TransaksiControllers::class, 'index'])->name('transaksi.page');
+    Route::post('transaksi/page', [TransaksiControllers::class, 'store'])->name('transaksi.store');
+});

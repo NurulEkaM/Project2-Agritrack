@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('absensi', function (Blueprint $table) {
             $table->id('id_absensi'); // Primary Key (int)
             $table->date('tanggal'); // + tanggal: date
-            $table->enum('lokasi', ['kebun_lanud', 'kebun_sadang']); // + lokasi: enum
+            $table->enum('lokasi', ['pulo', 'sindang']); // + lokasi: enum
             $table->enum('status', ['absen_datang', 'absen_pulang', 'lembur_datang', 'lembur_pulang', 'tidak_hadir']); // + status: enum
             $table->string('kegiatan')->nullable(); // + kegiatan: string
             

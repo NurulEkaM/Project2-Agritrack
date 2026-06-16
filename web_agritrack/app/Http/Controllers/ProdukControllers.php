@@ -62,4 +62,15 @@ public function destroy($id)
     $produk->delete();
     return response()->json(['message' => 'Produk berhasil dihapus']);
 }
+
+public function indexWeb()
+{
+    // 1. Ambil semua data produk dari database
+    $produk = Produk::all(); 
+    
+    // 2. Arahkan ke file blade Anda (misal: nama filenya katalog.blade.php)
+    // dan bawa variabel $produk menggunakan compact()
+    return view('welcome', compact('produk')); 
+}
+
 }

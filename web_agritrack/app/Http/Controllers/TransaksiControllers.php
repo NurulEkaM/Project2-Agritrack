@@ -13,19 +13,21 @@ class TransaksiControllers extends Controller
     public function index()
     {
         $produks = Produk::all();
-        // Memuat relasi details dan produk agar tidak N+1 query
         $riwayat = Transaksi::with('details.produk')->orderBy('created_at', 'desc')->get();
         return view('transaksi.page', compact('produks', 'riwayat'));
     }
 
     public function store(Request $request)
     {
-        // Validasi input identitas dan produk
+        // 1. Validasi input ditambahkan field baru
         $request->validate([
-            'nama_pembeli' => 'required|string|max:255',
-            'lokasi'       => 'required|string|max:255',
-            'no_tlp'       => 'required|string|max:20',
-            'items'        => 'required|array',
+            'nama_pembeli'  => 'required|string|max:255',
+            'lokasi'        => 'required|string|max:255',
+            'no_tlp'        => 'required|string|max:20',
+            'jenis_pesanan' => 'required|in:wa,datang_langsung,online_shop',
+            'no_resi'       => 'nullable|string|max:100',
+            'tanggal_pesan' => 'required|date',
+            'items'         => 'required|array',
         ]);
 
         $filteredItems = collect($request->items)->filter(function ($item) {
@@ -39,18 +41,21 @@ class TransaksiControllers extends Controller
         try {
             DB::beginTransaction();
 
-            // 1. Simpan Transaksi Utama
+            // 2. Simpan Transaksi Utama dengan field baru
             $transaksi = new Transaksi();
             $transaksi->kode_transaksi = 'TRX-' . strtoupper(uniqid());
             $transaksi->nama_pembeli = $request->nama_pembeli;
             $transaksi->lokasi = $request->lokasi;
             $transaksi->no_tlp = $request->no_tlp;
-            $transaksi->total_harga = 0; // Sementara 0, akan diupdate setelah loop
+            $transaksi->jenis_pesanan = $request->jenis_pesanan;
+            $transaksi->no_resi = $request->no_resi;
+            $transaksi->tanggal_pesan = $request->tanggal_pesan;
+            $transaksi->total_harga = 0; 
             $transaksi->save();
 
             $totalBayar = 0;
 
-            // 2. Simpan Detail Transaksi & Update Stok
+            // 3. Simpan Detail Transaksi & Update Stok
             foreach ($filteredItems as $item) {
                 $produk = Produk::findOrFail($item['id_produk']);
 
@@ -67,22 +72,19 @@ class TransaksiControllers extends Controller
                     'harga_subtotal' => $subtotal
                 ]);
 
-                // Kurangi stok produk
                 $produk->decrement('stok', $item['qty']);
                 $totalBayar += $subtotal;
             }
 
-            // 3. Update Total Harga di Transaksi
             $transaksi->update(['total_harga' => $totalBayar]);
 
-            // 4. Catat ke Tabel Debit (Laporan Keuangan)
+            // 4. Catat ke Tabel Debit
             DB::table('Debit')->insert([
                 'id_penjualan'    => $transaksi->id_transaksi,
                 'nama'            => 'Penjualan Produk',
-                'total_pemasukan' => $totalBayar,
                 'saldo_debit'     => $totalBayar,
                 'tanggal'         => now(),
-                'keterangan'      => "Pemasukan dari {$request->nama_pembeli} ({$request->lokasi}) - Kode: {$transaksi->kode_transaksi}",
+                'keterangan'      => "Pemasukan dari {$request->nama_pembeli} ({$request->lokasi}) - Jenis: {$request->jenis_pesanan}" . ($request->jenis_pesanan === 'online_shop' ? " - No. Resi: {$request->no_resi}" : "") . " - Kode: {$transaksi->kode_transaksi}",
                 'created_at'      => now(),
                 'updated_at'      => now(),
             ]);
@@ -100,7 +102,6 @@ class TransaksiControllers extends Controller
     {
         try {
             $transaksi = Transaksi::findOrFail($id);
-            // Tambahkan logika pengembalian stok jika diperlukan sebelum delete
             $transaksi->delete();
             return redirect()->back()->with('success', 'Data transaksi berhasil dihapus.');
         } catch (\Exception $e) {

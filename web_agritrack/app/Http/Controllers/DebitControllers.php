@@ -24,14 +24,12 @@ class DebitControllers extends Controller
     $request->validate([
         'nama' => 'required|string|max:255',
         'tanggal' => 'required|date',
-        'total_pemasukan' => 'required|numeric',
         'saldo_debit' => 'required|numeric',
         'keterangan' => 'nullable|string', // Tambahkan ini agar tidak error 1364
     ]);
 
     Debit::create([
         'nama' => $request->nama,
-        'total_pemasukan' => $request->total_pemasukan,
         'saldo_debit' => $request->saldo_debit,
         'tanggal' => $request->tanggal,
         'keterangan' => $request->keterangan ?? '-', // Jika kosong, diisi tanda strip
