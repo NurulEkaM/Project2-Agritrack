@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 
 class AbsensiControllers extends Controller
 {
@@ -197,4 +198,37 @@ class AbsensiControllers extends Controller
             return redirect()->back()->with('error', 'Gagal memperbarui data: ' . $e->getMessage());
         }
     }
+
+    // 5. CETAK PDF
+public function cetakPdf(Request $request)
+{
+    $bulan = $request->bulan ? (int)$request->bulan : (int)date('m'); 
+    $tahun = $request->tahun ? (int)$request->tahun : (int)date('Y');
+    $id_user = $request->id_user; 
+
+    // Cek nama kolom yang benar di tabel users Anda!
+    // Jika di tabel users kolomnya bernama 'id', maka kode Anda sudah benar.
+    // Jika kolomnya bernama 'id_user', ubah bagian 'users.id_user' menjadi 'users.id_user'.
+    
+    $query = DB::table('absensi')
+        ->join('users', 'absensi.id_user', '=', 'users.id_user') // <-- PERIKSA BAGIAN INI
+        ->select('absensi.*', 'users.nama as nama_pegawai');
+
+    if ($id_user) {
+        $query->where('absensi.id_user', $id_user);
+    }
+
+    $query->whereMonth('absensi.tanggal_datang', $bulan)
+          ->whereYear('absensi.tanggal_datang', $tahun);
+
+    $data = $query->orderBy('absensi.tanggal_datang', 'asc')->get();
+
+    // Sisa kode sama...
+    $namaPegawai = $id_user ? (\App\Models\User::find($id_user)->nama ?? 'Pegawai') : 'Semua Pegawai';
+    $totalLemburKeseluruhan = $data->sum('total_lembur');
+    $totalPendapatanLembur = $totalLemburKeseluruhan * 10000;
+
+    $pdf = PDF::loadView('absensi.pdf', compact('data', 'bulan', 'tahun', 'namaPegawai', 'totalLemburKeseluruhan', 'totalPendapatanLembur'));
+    return $pdf->stream('Laporan_Absensi_' . $namaPegawai . '.pdf');
+}
 }

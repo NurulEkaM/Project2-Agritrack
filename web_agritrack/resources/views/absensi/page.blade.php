@@ -75,7 +75,64 @@
         
         {{-- Kotak Pencarian Pintar (Live Search) --}}
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
-            <div class="relative w-full sm:w-80">
+             {{-- Tombol Cetak PDF --}}
+                <button onclick="document.getElementById('modalPdf').classList.remove('hidden')" 
+                    class="bg-red-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-red-700 transition flex items-center gap-2 shadow-sm">
+                    <i class="fas fa-file-pdf"></i> Cetak PDF
+                </button>
+
+                {{-- Modal Filter PDF --}}
+                <div id="modalPdf" class="fixed inset-0 z-[1000] hidden flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+                    <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-gray-100">
+                        <div class="mb-4">
+                            <h3 class="font-bold text-lg text-gray-800">Filter Laporan PDF</h3>
+                            <p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Pilih kriteria untuk cetak data</p>
+                        </div>
+                        
+                        <form action="{{ route('absensi.cetak.pdf') }}" method="GET">
+                            {{-- Filter Bulan --}}
+                            <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Bulan</label>
+                            <select name="bulan" class="w-full p-3 mb-3 border border-gray-200 rounded-xl text-sm focus:border-[#064E3B] outline-none">
+                                @foreach(range(1, 12) as $m)
+                                    <option value="{{ $m }}" {{ date('m') == $m ? 'selected' : '' }}>
+                                        {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
+                                    </option>
+                                @endforeach
+                            </select>
+
+                            {{-- Filter Tahun --}}
+                            <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Tahun</label>
+                            <select name="tahun" class="w-full p-3 mb-3 border border-gray-200 rounded-xl text-sm focus:border-[#064E3B] outline-none">
+                                @foreach(range(2025, date('Y')) as $y)
+                                    <option value="{{ $y }}" {{ date('Y') == $y ? 'selected' : '' }}>{{ $y }}</option>
+                                @endforeach
+                            </select>
+
+                            {{-- Filter Pegawai --}}
+                            <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Pegawai</label>
+                        <select name="id_user" class="w-full p-3 mb-5 border border-gray-200 rounded-xl text-sm focus:border-[#064E3B] outline-none" required>
+                                <option value="">-- Pilih Pegawai --</option>
+                                
+                                {{-- Mengambil ID User yang unik dari tabel absensi --}}
+                                @php
+                                    $idUserAbsensi = \App\Models\Absensi::distinct()->pluck('id_user');
+                                @endphp
+
+                                {{-- Menampilkan user hanya jika id-nya ada di daftar absensi --}}
+                                @foreach(\App\Models\User::whereIn('id_user', $idUserAbsensi)->get() as $user)
+                                    <option value="{{ $user->id_user }}">{{ $user->nama }}</option>
+                                @endforeach
+                            </select>
+
+                            <button type="submit" class="w-full bg-[#064E3B] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#053F30] transition shadow-lg">
+                                Cetak
+                            </button>
+                            <button type="button" onclick="document.getElementById('modalPdf').classList.add('hidden')" 
+                                class="w-full mt-3 text-xs font-bold text-gray-400 hover:text-gray-600">Batal</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="relative w-full sm:w-80">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3">
                     <i class="fas fa-search text-gray-400 text-xs"></i>
                 </span>
@@ -83,10 +140,6 @@
                     class="block w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl bg-[#F8FAFC] text-xs font-semibold focus:ring-2 focus:ring-[#065F46]/20 focus:border-[#065F46] outline-none transition placeholder-gray-400 shadow-inner" 
                     placeholder="Cari nama pegawai, lokasi, status, atau kegiatan...">
             </div>
-
-            <button class="bg-[#F8FAFC] text-xs font-bold text-gray-600 px-4 py-2.5 rounded-xl hover:bg-gray-100 border border-gray-200/50 whitespace-nowrap transition flex items-center justify-center gap-2">
-                <i class="fas fa-file-export text-gray-400"></i> Download Data (Excel)
-            </button>
         </div>
     </div>
 

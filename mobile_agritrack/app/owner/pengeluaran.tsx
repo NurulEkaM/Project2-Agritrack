@@ -8,12 +8,12 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  TextInput,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import BottomNav from './components/BottomNav';
 
-// Interface sesuai kolom di database Laravel
 interface Kredit {
   id_kredit: number;
   nama: string;
@@ -29,15 +29,16 @@ const PengeluaranScreen = () => {
   const [dataKredit, setDataKredit] = useState<Kredit[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(''); // State untuk pencarian
 
-  // URL API Laravel
   const API_URL = 'http://10.0.2.2:8000/api/kredit';
 
   const fetchDataKredit = async () => {
     try {
       const response = await fetch(API_URL);
       const json = await response.json();
-      setDataKredit(json.results);
+      const sortedData = json.results.sort((a: Kredit, b: Kredit) => b.id_kredit - a.id_kredit);
+      setDataKredit(sortedData);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -59,42 +60,41 @@ const PengeluaranScreen = () => {
     return new Intl.NumberFormat('id-ID').format(number);
   };
 
+  // Logika Filter
+  const filteredData = dataKredit.filter((item) =>
+    item.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.keterangan.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const handleNavigation = (screenName: string) => {
-    if (screenName === 'Home') router.push('/owner')
-        else if (screenName === 'Pengeluaran') router.push('/owner/pengeluaran')
-        else if (screenName === 'Karyawan') router.push('/owner/karyawan')
-        else if (screenName === 'Laporan') router.push('/owner/laporan')
-        else if (screenName === 'Profile') router.push('/owner/profile');
+    if (screenName === 'Home') router.push('/owner');
+    else if (screenName === 'Pengeluaran') router.push('/owner/pengeluaran');
+    else if (screenName === 'Karyawan') router.push('/owner/karyawan');
+    else if (screenName === 'Laporan') router.push('/owner/laporan');
+    else if (screenName === 'Profile') router.push('/owner/profile');
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#117a65" />
         }
       >
-        {/* Header Section */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Pengeluaran</Text>
           <Text style={styles.subHeaderTitle}>Pengeluaran (Kredit)</Text>
-          <Text style={styles.headerDescription}>
-            Manage and track your financial health.
-          </Text>
+          <Text style={styles.headerDescription}>Manage and track your financial health.</Text>
         </View>
 
-        {/* Info/Filter Cards */}
         <View style={styles.filterRow}>
           <View style={styles.filterCard}>
             <Text style={styles.filterLabel}>JLM SEMUA PENGELUARAN</Text>
             <View style={styles.filterValueContainer}>
               <Text style={styles.filterValue}>
-                {formatRupiah(
-                  dataKredit
-                    .filter(item => item.status === 'setuju') // Filter dulu statusnya
-                    .length
-                )}
+                {formatRupiah(filteredData.filter(item => item.status === 'setuju').length)}
               </Text>
               <Ionicons name="checkmark-circle" size={18} color="#555" />
             </View>
@@ -103,34 +103,39 @@ const PengeluaranScreen = () => {
             <Text style={styles.filterLabel}>JUMLAH UANG (SETUJU)</Text>
             <View style={styles.filterValueContainer}>
               <Text style={[styles.filterValue, { fontSize: 12 }]}>
-                Rp {formatRupiah(
-                  dataKredit
-                    .filter(item => item.status === 'setuju') // Filter dulu statusnya
-                    .reduce((sum, item) => sum + item.saldo_kredit, 0) // Baru dijumlahkan
-                )}
+                Rp {formatRupiah(filteredData.filter(item => item.status === 'setuju').reduce((sum, item) => sum + item.saldo_kredit, 0))}
               </Text>
               <MaterialCommunityIcons name="cash-check" size={18} color="#117a65" />
             </View>
           </View>
         </View>
 
-        {/* Transaction List */}
+                {/* Input Pencarian */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#7f8c8d" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Cari berdasarkan nama "
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+
         <View style={styles.listContainer}>
           {loading ? (
             <ActivityIndicator size="large" color="#117a65" style={{ marginTop: 20 }} />
-          ) : dataKredit.length > 0 ? (
-            dataKredit.map((item) => {
-              // LOGIKA WARNA DINAMIS
-              let statusColor = '#d4ac0d'; // Default Kuning (tunggu)
+          ) : filteredData.length > 0 ? (
+            filteredData.map((item) => {
+              let statusColor = '#d4ac0d';
               let statusBg = '#fef9e7';
               let statusLabel = 'PENDING';
 
               if (item.status === 'setuju') {
-                statusColor = '#117a65'; // Hijau
+                statusColor = '#117a65';
                 statusBg = '#e8f3f1';
                 statusLabel = 'PAID';
               } else if (item.status === 'tidak disetuju') {
-                statusColor = '#e74c3c'; // Merah
+                statusColor = '#e74c3c';
                 statusBg = '#fceaea';
                 statusLabel = 'REJECTED';
               }
@@ -140,7 +145,6 @@ const PengeluaranScreen = () => {
                   key={item.id_kredit} 
                   activeOpacity={0.7}
                   onPress={() => {
-                    // Hanya bisa diklik jika statusnya 'tunggu'
                     if (item.status === 'tunggu') {
                       router.push({
                         pathname: '/owner/detail_kredit',
@@ -157,11 +161,7 @@ const PengeluaranScreen = () => {
                     }
                   }}
                 >
-                  <View style={[
-                    styles.card, 
-                    item.jenis_pengeluaran === 'tetap' && styles.cardBorderTetap,
-                    item.status !== 'tunggu' && { opacity: 0.9 }
-                  ]}>
+                  <View style={[styles.card, item.jenis_pengeluaran === 'tetap' && styles.cardBorderTetap, item.status !== 'tunggu' && { opacity: 0.9 }]}>
                     <View style={[styles.cardIconContainer, { backgroundColor: statusBg }]}>
                       <MaterialCommunityIcons 
                         name={item.jenis_pengeluaran === 'tetap' ? "file-check" : "cash-fast"} 
@@ -178,11 +178,8 @@ const PengeluaranScreen = () => {
                     <View style={styles.cardAmountContainer}>
                       <Text style={[styles.currency, { color: statusColor }]}>Rp</Text>
                       <Text style={[styles.amount, { color: statusColor }]}>{formatRupiah(item.saldo_kredit)}</Text>
-                      
                       <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
-                        <Text style={[styles.statusBadgeText, { color: statusColor }]}>
-                          {statusLabel}
-                        </Text>
+                        <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusLabel}</Text>
                       </View>
                     </View>
                   </View>
@@ -190,15 +187,11 @@ const PengeluaranScreen = () => {
               );
             })
           ) : (
-            <Text style={styles.emptyText}>Tidak ada data pengeluaran.</Text>
+            <Text style={styles.emptyText}>Tidak ada data ditemukan.</Text>
           )}
         </View>
       </ScrollView>
-
-      <BottomNav 
-        activeScreen="Pengeluaran" 
-        onNavPress={handleNavigation} 
-      />
+      <BottomNav activeScreen="Pengeluaran" onNavPress={handleNavigation} />
     </SafeAreaView>
   );
 };
@@ -210,6 +203,26 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#117a65', marginBottom: 15 },
   subHeaderTitle: { fontSize: 22, fontWeight: '700', color: '#333' },
   headerDescription: { fontSize: 14, color: '#7f8c8d', marginTop: 5 },
+  // Style Tambahan untuk Search
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 15,
+    borderRadius: 12,
+    marginBottom: 20,
+    height: 50,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#333',
+  },
   filterRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
   filterCard: { backgroundColor: '#fff', width: '48%', padding: 12, borderRadius: 12, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
   filterLabel: { fontSize: 10, fontWeight: 'bold', color: '#117a65', marginBottom: 5 },
@@ -217,7 +230,6 @@ const styles = StyleSheet.create({
   filterValue: { fontSize: 14, fontWeight: '600', color: '#333' },
   listContainer: { gap: 15 },
   card: { backgroundColor: '#fff', borderRadius: 15, padding: 15, flexDirection: 'row', alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
-  cardBorderSpecial: { borderTopWidth: 3, borderTopColor: '#d4ac0d' },
   cardBorderTetap: { borderTopWidth: 3, borderTopColor: '#fffd96' },
   cardIconContainer: { width: 45, height: 45, borderRadius: 22.5, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   cardInfo: { flex: 1 },

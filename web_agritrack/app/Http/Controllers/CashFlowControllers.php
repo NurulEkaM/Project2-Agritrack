@@ -54,52 +54,51 @@ class CashFlowControllers extends Controller
     //     return view('cashflow.page', compact('cashflow', 'totalPengeluaran', 'totalPemasukan'));
     // }
 
-    private function getCashflowData()
+    private function getCashflowData($bulan = null, $tahun = null)
 {
-    // 1. Query untuk data Pemasukan (Debit)
-    $debitQuery = DB::table('debit')
-        ->select(
-            'id_debit as id', 
-            'tanggal', 
-            'nama', 
-            DB::raw("'PEMASUKAN' as kategori"), 
-            DB::raw("null as sifat"), // Ditambahkan null agar jumlah kolom union seimbang
-            'saldo_debit as nominal', 
-            DB::raw("'setuju' as status"),
-            DB::raw("'green' as color")
-        );
+    $bulan = $bulan ?? now()->month;
+    $tahun = $tahun ?? now()->year;
 
-    // 2. Query untuk data Pengeluaran (Kredit)
+    // Query Pemasukan
+    $debitQuery = DB::table('debit')
+        ->select('id_debit as id', 'tanggal', 'nama', DB::raw("'PEMASUKAN' as kategori"), DB::raw("null as sifat"), 'saldo_debit as nominal', DB::raw("'setuju' as status"), DB::raw("'green' as color"))
+        ->whereMonth('tanggal', $bulan)
+        ->whereYear('tanggal', $tahun);
+
+    // Query Pengeluaran
     $cashflow = DB::table('kredit')
-        ->select(
-            'id_kredit as id', 
-            'tanggal', 
-            'nama', 
-            DB::raw("'PENGELUARAN' as kategori"), // Set kategori utama sebagai PENGELUARAN
-            'jenis_pengeluaran as sifat',       // Mengambil nilai 'tetap' / 'tidak tetap' dimasukkan ke alias 'sifat'
-            'saldo_kredit as nominal', 
-            'status', 
-            DB::raw("'red' as color")
-        )
+        ->select('id_kredit as id', 'tanggal', 'nama', DB::raw("'PENGELUARAN' as kategori"), 'jenis_pengeluaran as sifat', 'saldo_kredit as nominal', 'status', DB::raw("'red' as color"))
         ->where('status', 'setuju')
+        ->whereMonth('tanggal', $bulan)
+        ->whereYear('tanggal', $tahun)
         ->unionAll($debitQuery)
         ->orderBy('tanggal', 'desc')
         ->get();
 
-    // Total Pengeluaran hanya dari yang disetujui dan pada bulan ini
-    $totalPengeluaran = DB::table('kredit')
-        ->where('status', 'setuju')
-        ->whereMonth('tanggal', now()->month)
-        ->whereYear('tanggal', now()->year)
-        ->sum('saldo_kredit');
+    $totalPengeluaran = DB::table('kredit')->where('status', 'setuju')->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)->sum('saldo_kredit');
+    $totalPemasukan = DB::table('debit')->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun)->sum('saldo_debit');
 
-    // Total Pemasukan pada bulan ini
-    $totalPemasukan = DB::table('debit')
-        ->whereMonth('tanggal', now()->month)
-        ->whereYear('tanggal', now()->year)
-        ->sum('saldo_debit');
+    return compact('cashflow', 'totalPengeluaran', 'totalPemasukan', 'bulan', 'tahun');
+}
 
-    return compact('cashflow', 'totalPengeluaran', 'totalPemasukan');
+public function downloadPDF(Request $request)
+{
+    $bulan = $request->query('bulan', now()->month);
+    $tahun = $request->query('tahun', now()->year);
+    
+   // ... baris sebelumnya
+    $data = $this->getCashflowData($bulan, $tahun);
+    $data['tanggal_cetak'] = now()->format('d F Y');
+    
+    // 1. Muat view ke dalam object PDF
+    $pdf = Pdf::loadView('cashflow.pdf', $data);
+
+    // 2. Set ukuran kertas
+    $pdf->setPaper('a4', 'portrait');
+
+    // 3. Return dengan nama file yang diinginkan
+    // Gunakan 'stream' untuk menampilkan di browser, atau 'download' untuk mengunduh otomatis
+    return $pdf->stream("Laporan-Cashflow-$tahun-$bulan.pdf");
 }
 
     public function indexCashflow()
@@ -108,29 +107,29 @@ class CashFlowControllers extends Controller
         return view('cashflow.page', $data);
     }
 
-    public function downloadPDF()
-{
-    $data = $this->getCashflowData();
+//     public function downloadPDF()
+// {
+//     $data = $this->getCashflowData();
     
-    // DEBUG: Jika ini muncul di browser saat diklik, berarti data aman.
-    // Jika tetap putih, berarti masalah ada di render PDF-nya.
-    // dd($data); 
+//     // DEBUG: Jika ini muncul di browser saat diklik, berarti data aman.
+//     // Jika tetap putih, berarti masalah ada di render PDF-nya.
+//     // dd($data); 
 
-    $data['tanggal_cetak'] = now()->format('d F Y');
+//     $data['tanggal_cetak'] = now()->format('d F Y');
     
-    Laporan::create([
-        'judul' => 'Laporan Cashflow ' . now()->format('M Y'),
-        'file_path' => 'Laporan-Cashflow-Kiwari-Farm.pdf',
-        'tanggal_buat' => now(),
-    ]);
+//     Laporan::create([
+//         'judul' => 'Laporan Cashflow ' . now()->format('M Y'),
+//         'file_path' => 'Laporan-Cashflow-Kiwari-Farm.pdf',
+//         'tanggal_buat' => now(),
+//     ]);
 
-    $pdf = Pdf::loadView('cashflow.pdf', $data);
+//     $pdf = Pdf::loadView('cashflow.pdf', $data);
     
-    // Gunakan setPaper untuk memastikan ukuran halaman terdefinisi
-    return $pdf->setPaper('a4', 'portrait')->download('Laporan-Cashflow-Kiwari-Farm.pdf');
-}
-// Tambahkan fungsi API untuk Mobile mengambil daftar laporan
-// Tambahkan di dalam class CashFlowControllers
+//     // Gunakan setPaper untuk memastikan ukuran halaman terdefinisi
+//     return $pdf->setPaper('a4', 'portrait')->download('Laporan-Cashflow-Kiwari-Farm.pdf');
+// }
+// // Tambahkan fungsi API untuk Mobile mengambil daftar laporan
+// // Tambahkan di dalam class CashFlowControllers
 public function getListLaporan()
 {
     try {

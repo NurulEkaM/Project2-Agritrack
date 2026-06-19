@@ -141,23 +141,66 @@ const KaryawanScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8faf9' },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 110 },
-  header: { marginBottom: 20 },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#117a65', marginBottom: 5 },
-  subHeaderTitle: { fontSize: 22, fontWeight: '700', color: '#333' },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f2f1', borderRadius: 12, paddingHorizontal: 15, height: 50, marginBottom: 25 },
+  container: { flex: 1, backgroundColor: '#F4F7F6' }, // Sedikit lebih keabu-abuan agar putih card lebih muncul
+  scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 120 },
+  header: { marginBottom: 25 },
+  headerTitle: { fontSize: 14, fontWeight: '700', color: '#117a65', letterSpacing: 1, marginBottom: 5 },
+  subHeaderTitle: { fontSize: 26, fontWeight: '800', color: '#2C3E50' },
+  
+  // Search bar yang lebih modern
+  searchContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 15, 
+    paddingHorizontal: 15, 
+    height: 55, 
+    marginBottom: 25,
+    borderWidth: 1,
+    borderColor: '#E1E8E8'
+  },
   searchIcon: { marginRight: 10 },
-  searchInput: { flex: 1, fontSize: 15, color: '#333' },
-  listContainer: { gap: 15 },
-  card: { backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden', elevation: 4, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 5 },
-  cardHeaderAccent: { height: 4, backgroundColor: '#f9d976' },
+  searchInput: { flex: 1, fontSize: 16, color: '#333' },
+  
+  // Card styling
+  listContainer: { gap: 16 },
+  card: { 
+    backgroundColor: '#fff', 
+    borderRadius: 16, 
+    overflow: 'hidden', 
+    // Shadow untuk iOS dan Android yang lebih elegan
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3, 
+  },
+  cardHeaderAccent: { height: 6, backgroundColor: '#f9d976' }, // Sedikit lebih tebal aksennya
   cardBody: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20 },
-  employeeName: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  employeeRole: { fontSize: 12, color: '#95a5a6', marginTop: 3 },
-  viewDetailsText: { fontSize: 12, fontWeight: 'bold', color: '#117a65' },
-  fab: { position: 'absolute', right: 20, bottom: 90, backgroundColor: '#f9d976', width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 8 },
-  emptyText: { textAlign: 'center', color: '#95a5a6', marginTop: 40 },
+  employeeName: { fontSize: 17, fontWeight: '700', color: '#2C3E50', marginBottom: 4 },
+  employeeRole: { fontSize: 13, fontWeight: '500', color: '#7F8C8D', backgroundColor: '#F0F3F3', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  
+  // Tombol detail
+  viewDetailsText: { fontSize: 13, fontWeight: '700', color: '#117a65', letterSpacing: 0.5 },
+  
+  // FAB yang lebih menonjol
+  fab: { 
+    position: 'absolute', 
+    right: 20, 
+    bottom: 100, 
+    backgroundColor: '#aeffef', // Diubah jadi hijau supaya lebih kontras (karena kuning kurang terlihat di beberapa layar)
+    width: 60, 
+    height: 60, 
+    borderRadius: 30, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    shadowColor: '#117a65',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8 
+  },
+  emptyText: { textAlign: 'center', color: '#95a5a6', marginTop: 40, fontSize: 16 },
 });
 
 export default KaryawanScreen;

@@ -108,4 +108,29 @@ class TransaksiControllers extends Controller
             return redirect()->back()->with('error', 'Gagal menghapus data.');
         }
     }
+
+    public function printPdf(Request $request)
+    {
+        $bulan = $request->input('bulan', now()->month);
+        $tahun = $request->input('tahun', now()->year);
+        $jenis = $request->input('jenis_pesanan', 'semua');
+
+        $query = Transaksi::with('details.produk');
+
+        // Filter berdasarkan bulan dan tahun
+        $query->whereMonth('tanggal_pesan', $bulan)
+            ->whereYear('tanggal_pesan', $tahun);
+
+        if ($jenis !== 'semua') {
+            $query->where('jenis_pesanan', $jenis);
+        }
+
+        $transaksi = $query->orderBy('tanggal_pesan', 'desc')->get();
+
+        // DEBUGGING: Aktifkan baris di bawah ini untuk melihat apakah data ditemukan
+        // dd($transaksi->toArray()); 
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('transaksi.pdf', compact('transaksi', 'bulan', 'tahun', 'jenis'));
+        return $pdf->stream('Laporan_Transaksi.pdf');
+    }
 }

@@ -7,6 +7,7 @@ use App\Models\Gaji;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 
 
 class GajiControllers extends Controller
@@ -86,74 +87,62 @@ class GajiControllers extends Controller
     }
 
     public function generateGaji()
-    {
-        try {
-            DB::beginTransaction();
+{
+    try {
+        DB::beginTransaction();
 
-            // 1. Tentukan rentang waktu (Senin - Jumat minggu ini)
-            $startOfWeek = Carbon::now()->startOfWeek(Carbon::MONDAY);
-            $endOfWeek = Carbon::now()->startOfWeek(Carbon::FRIDAY);
-            $now = Carbon::now();
+        $startOfWeek = Carbon::now()->startOfWeek(Carbon::MONDAY);
+        $endOfWeek = Carbon::now()->startOfWeek(Carbon::FRIDAY);
+        $now = Carbon::now();
 
-            // 2. Ambil semua user yang memiliki data absen di rentang tersebut
-            $users = User::whereHas('absensi', function($query) use ($startOfWeek, $endOfWeek) {
-                $query->whereBetween('tanggal_datang', [$startOfWeek, $endOfWeek->endOfDay()]);
-            })->get();
+        $users = User::whereHas('absensi', function($query) use ($startOfWeek, $endOfWeek) {
+            $query->whereBetween('tanggal_datang', [$startOfWeek, $endOfWeek->endOfDay()]);
+        })->get();
 
-            if ($users->isEmpty()) {
-                return redirect()->back()->with('error', 'Tidak ada data absensi untuk diproses minggu ini.');
-            }
+        foreach ($users as $user) {
+            // Perbaikan 1: Menggunakan selectRaw untuk menghitung jumlah hari unik
+            $totalHadir = DB::table('absensi')
+                ->where('id_user', $user->id_user)
+                ->whereBetween('tanggal_datang', [$startOfWeek, $endOfWeek->endOfDay()])
+                ->whereIn('status', ['selesai'])
+                ->selectRaw('count(DISTINCT DATE(tanggal_datang)) as total')
+                ->value('total');
 
-            foreach ($users as $user) {
-                // Hitung Total Absen (Kehadiran Senin-Jumat)
-                $totalHadir = DB::table('absensi')
-                    ->where('id_user', $user->id_user)
-                    ->whereBetween('tanggal_datang', [$startOfWeek, $endOfWeek->endOfDay()])
-                    ->whereIn('status', ['absen_pulang', 'absen_datang']) // Pastikan status hadir
-                    ->count();
+            $sumJamLembur = DB::table('absensi')
+                ->where('id_user', $user->id_user)
+                ->whereBetween('tanggal_datang', [$startOfWeek, $endOfWeek->endOfDay()])
+                ->sum('total_lembur');
 
-                // Hitung Total Lembur (Sum dari kolom total_lembur di tabel absensi)
-                $sumJamLembur = DB::table('absensi')
-                    ->where('id_user', $user->id_user)
-                    ->whereBetween('tanggal_datang', [$startOfWeek, $endOfWeek->endOfDay()])
-                    ->sum('total_lembur');
+            // Perbaikan 2: Logika Gaji
+            // Jika $user->gaji adalah gaji PER HARI, maka cukup $totalHadir * $user->gaji
+            $gajiPokok = $user->gaji * $totalHadir; 
+            $nominalLembur = $sumJamLembur * 10000;
+            $grandTotalGaji = $gajiPokok + $nominalLembur;
 
-                // Hitung Nominal
-                $nominalAbsen = $totalHadir * ($user->gaji ?? 0);
-                $nominalLembur = $sumJamLembur * 10000;
-                $grandTotalGaji = $nominalAbsen + $nominalLembur;
-
-                // Keterangan: Nama Bulan + Minggu Ke-
-                $mingguKe = ceil($now->day / 7);
-                $keterangan = "Gaji " . $now->translatedFormat('F');
-
-                // 3. Simpan ke Tabel Gaji
-                // Gunakan updateOrInsert agar tidak double input jika tombol diklik ulang di hari yang sama
-                DB::table('gaji')->updateOrInsert(
-                    [
-                        'id_user' => $user->id_user,
-                        'tanggal' => $now->format('Y-m-d'),
-                    ],
-                    [
-                        'total_gaji'   => $grandTotalGaji,
-                        'total_lembur' => $sumJamLembur,
-                        'total_absen'  => $totalHadir,
-                        'keterangan'   => $keterangan,
-                        'status'       => 'minta_konfirmasi',
-                        // 'created_at'   => now(),
-                        // 'updated_at'   => now(),
-                    ]
-                );
-            }
-
-            DB::commit();
-            return redirect()->route('gaji.page')->with('success', 'Berhasil menghitung gaji untuk ' . $users->count() . ' karyawan.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return redirect()->back()->with('error', 'Gagal hitung gaji: ' . $e->getMessage());
+            DB::table('gaji')->updateOrInsert(
+                [
+                    'id_user' => $user->id_user,
+                    'tanggal' => $now->format('Y-m-d'),
+                ],
+                [
+                    'total_gaji'   => $grandTotalGaji,
+                    // 'gajipokok' => $gajiPokok,
+                    'total_lembur' => $sumJamLembur,
+                    'total_absen'  => $totalHadir,
+                    'keterangan'   => "Gaji " . $now->translatedFormat('F') . " minggu ke-" . $now->weekOfMonth,
+                    'status'       => 'minta_konfirmasi',
+                ]
+            );
         }
+
+        DB::commit();
+        return redirect()->route('gaji.page')->with('success', 'Gaji berhasil dihitung untuk ' . $users->count() . ' karyawan.');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return redirect()->back()->with('error', 'Gagal: ' . $e->getMessage());
     }
+}
 
     public function konfirmasiAdmin($id)
     {
@@ -200,5 +189,36 @@ class GajiControllers extends Controller
             return redirect()->back()->with('error', 'Gagal memproses data: ' . $e->getMessage());
         }
     }
+    
+public function cetakPdf(Request $request)
+{
+    $bulan = $request->bulan ? (int)$request->bulan : (int)date('m'); 
+    $tahun = $request->tahun ? (int)$request->tahun : (int)date('Y');
+    $id_user = $request->id_user; 
 
+    // Cek nama kolom yang benar di tabel users Anda!
+    // Jika di tabel users kolomnya bernama 'id', maka kode Anda sudah benar.
+    // Jika kolomnya bernama 'id_user', ubah bagian 'users.id_user' menjadi 'users.id_user'.
+    
+    $query = DB::table('gaji')
+        ->join('users', 'gaji.id_user', '=', 'users.id_user') // <-- PERIKSA BAGIAN INI
+        ->select('gaji.*', 'users.nama as nama_pegawai');
+
+    if ($id_user) {
+        $query->where('gaji.id_user', $id_user);
+    }
+
+    $query->whereMonth('gaji.tanggal', $bulan)
+          ->whereYear('gaji.tanggal', $tahun);
+
+    $data = $query->orderBy('gaji.tanggal', 'asc')->get();
+
+    // Sisa kode sama...
+    $namaPegawai = $id_user ? (\App\Models\User::find($id_user)->nama ?? 'Pegawai') : 'Semua Pegawai';
+    $totalLemburKeseluruhan = $data->sum('total_lembur');
+    $totalPendapatanLembur = $totalLemburKeseluruhan * 10000;
+
+    $pdf = PDF::loadView('gaji.pdf', compact('data', 'bulan', 'tahun', 'namaPegawai', 'totalLemburKeseluruhan', 'totalPendapatanLembur'));
+    return $pdf->stream('Laporan_Gaji_' . $namaPegawai . '.pdf');
+}
 }
